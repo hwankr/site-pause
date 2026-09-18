@@ -3,32 +3,49 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>차단할 사이트 설정 — 잠깐, 집중</title>
+  <title>사이트 관리 — 잠깐, 집중</title>
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="options.js"></script>
 </head>
 <body class="options-page">
   <div class="settings-shell">
-    <header class="settings-header"><a class="brand" href="options.html"><span class="brand-mark" aria-hidden="true">Ⅱ</span>잠깐, 집중</a><span class="eyebrow">A LITTLE SPACE TO FOCUS</span></header>
+    <header class="settings-header">
+      <a class="brand" href="options.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span>잠깐, 집중</a>
+    </header>
     <main>
-      <div class="page-intro"><span class="eyebrow section-eyebrow">나의 집중 환경</span><h1>딴길을 줄이면,<br>집중할 자리가 생겨요.</h1><p>습관처럼 열어 보는 사이트만 골라 주세요.<br>공부할 때 켜고, 쉬고 싶을 때 끄면 됩니다.</p></div>
-      <div class="settings-grid">
-        <section class="settings-card" aria-labelledby="list-title">
-          <div class="section-row"><h2 id="list-title">잠시 멀리할 사이트</h2><span class="small-label" id="saved-count">불러오는 중…</span></div>
-          <label for="sites-input" class="input-label">사이트 주소</label>
-          <p id="sites-help" class="field-help">한 줄에 하나씩 적거나 쉼표로 구분하세요.<br>사이트 주소 전체를 붙여 넣어도 괜찮아요.</p>
-          <textarea id="sites-input" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="sites-help domain-help" placeholder="youtube.com&#10;instagram.com" rows="8" disabled></textarea>
-          <p id="domain-help" class="field-footnote">주소의 경로와 관계없이 해당 도메인과 하위 도메인 전체가 차단됩니다.</p>
-          <div class="quick-add"><span class="small-label">빠르게 추가</span><div class="quick-buttons"><button type="button" data-site="youtube.com" disabled>+ YouTube</button><button type="button" data-site="instagram.com" disabled>+ Instagram</button><button type="button" data-site="x.com" disabled>+ X</button><button type="button" data-site="reddit.com" disabled>+ Reddit</button></div></div>
-          <div class="save-row"><button id="save-button" class="primary-button" type="button" disabled>목록 저장</button><span id="draft-status" class="draft-status">저장한 목록만 적용돼요.</span></div>
-          <p id="save-message" class="message" role="status" hidden></p>
-        </section>
-        <aside class="settings-aside">
-          <section class="control-card" aria-labelledby="control-title"><span class="eyebrow">FOCUS SWITCH</span><h2 id="control-title">준비되면,<br>집중 모드로.</h2><p id="control-description">차단 상태를 확인하고 있어요.</p><button id="toggle-button" class="primary-button toggle-button" type="button" role="switch" aria-checked="false" disabled><span id="toggle-label">불러오는 중…</span><span class="switch-track" aria-hidden="true"><span></span></span></button><p class="activation-note" id="activation-note">켜면 열려 있는 해당 사이트도 차단 화면으로 바뀝니다. 작성 중인 내용은 먼저 저장해 주세요.</p><p id="toggle-message" class="message" role="status" hidden></p></section>
-          <div class="quiet-note"><span class="note-mark" aria-hidden="true">↳</span><div><h3>내가 정하는 작은 경계</h3><p>차단을 켠 상태에서 목록을 저장하면 바로 적용돼요. 켜고 끄기는 Chrome 도구 모음의 확장 프로그램 아이콘에서도 할 수 있어요.</p></div></div>
-        </aside>
-      </div>
-      <footer class="settings-footer"><span>집중은 작게, 한 번에 하나씩.</span><span>잠깐, 집중</span></footer>
+      <h1 class="page-title">사이트 관리</h1>
+      <section class="control-card" aria-labelledby="control-title">
+        <div class="section-row">
+          <div class="control-copy"><h2 id="control-title">사이트 차단</h2><span id="toggle-label" class="control-status">불러오는 중</span></div>
+          <button id="toggle-button" class="switch-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
+            <span class="switch-track" aria-hidden="true"><span></span></span>
+          </button>
+        </div>
+        <p id="toggle-message" class="message" role="status" hidden></p>
+      </section>
+      <section class="settings-card" aria-labelledby="list-title">
+        <div class="section-row">
+          <h2 id="list-title">차단 목록</h2>
+          <span class="count-badge" id="saved-count" aria-label="차단 목록 불러오는 중">—</span>
+        </div>
+        <ul id="site-list" class="settings-list" aria-label="차단 사이트"></ul>
+        <div id="empty-state" class="empty-state" hidden>등록된 사이트 없음</div>
+        <form id="add-form" class="add-site-row">
+          <input id="site-input" class="site-input" type="text" aria-label="추가할 사이트 주소" placeholder="example.com" spellcheck="false" autocapitalize="off" autocomplete="off" disabled>
+          <button id="add-button" class="secondary-button" type="submit" disabled>추가</button>
+        </form>
+        <div class="quick-buttons" aria-label="빠른 추가">
+          <button type="button" data-site="youtube.com" disabled>YouTube</button>
+          <button type="button" data-site="instagram.com" disabled>Instagram</button>
+          <button type="button" data-site="x.com" disabled>X</button>
+          <button type="button" data-site="reddit.com" disabled>Reddit</button>
+        </div>
+        <div class="save-row">
+          <span id="draft-status" class="draft-status" role="status" hidden>미저장</span>
+          <button id="save-button" class="primary-button" type="button" disabled>저장</button>
+        </div>
+        <p id="save-message" class="message" role="status" hidden></p>
+      </section>
     </main>
   </div>
 </body>

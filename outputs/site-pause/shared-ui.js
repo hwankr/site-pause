@@ -35,11 +35,3 @@ export function showMessage(element, text, kind = 'error') {
   element.dataset.kind = kind;
   element.hidden = !text;
 }
-
-export function makeChip(site) {
-  const chip = document.createElement('span');
-  chip.className = 'site-chip';
-  chip.textContent = site;
-  chip.title = site;
-  return chip;
-}

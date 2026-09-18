@@ -10,29 +10,31 @@
 <body class="popup-page">
   <main class="popup-shell">
     <header class="brand-row">
-      <span class="brand"><span class="brand-mark" aria-hidden="true">Ⅱ</span>잠깐, 집중</span>
-      <span class="eyebrow">ONE THING AT A TIME</span>
+      <span class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span>잠깐, 집중</span>
+      <button id="settings-button" class="icon-button" type="button" aria-label="사이트 관리">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+      </button>
     </header>
-
-    <section class="focus-hero" aria-labelledby="hero-title">
-      <div class="status-pill" id="status-pill"><span class="status-dot"></span><span id="status-label">상태 확인 중</span></div>
-      <h1 id="hero-title">지금은,<br>한 문제에 집중.</h1>
-      <p class="hero-description" id="hero-description">차단 상태를 불러오고 있어요.</p>
-      <div class="hero-art" aria-hidden="true"><span class="art-line"></span><span class="art-circle"></span><span class="art-pause">Ⅱ</span></div>
+    <section class="blocking-card" aria-labelledby="control-title">
+      <div class="section-row">
+        <h1 id="control-title">사이트 차단</h1>
+        <span class="status-pill" id="status-label">불러오는 중</span>
+      </div>
+      <div class="blocking-value"><strong id="site-count">0</strong><span>개 사이트</span></div>
+      <button id="toggle-button" class="primary-button toggle-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
+        <span id="toggle-label">불러오는 중</span><span class="switch-track" aria-hidden="true"><span></span></span>
+      </button>
     </section>
-
-    <button id="toggle-button" class="primary-button toggle-button" type="button" role="switch" aria-checked="false" disabled>
-      <span id="toggle-label">잠시만 기다려 주세요</span><span class="switch-track" aria-hidden="true"><span></span></span>
-    </button>
-    <p class="activation-note" id="activation-note">켜면 열려 있는 해당 사이트도 차단 화면으로 바뀝니다.<br>작성 중인 내용은 먼저 저장해 주세요.</p>
     <p id="message" class="message" role="status" hidden></p>
-
     <section class="sites-summary" aria-labelledby="sites-title">
-      <div class="section-row"><h2 id="sites-title">잠시 멀리할 사이트 <span id="site-count">—</span></h2><button class="text-button" id="settings-button" type="button">편집 <span aria-hidden="true">↗</span></button></div>
-      <div class="site-chips" id="site-chips"></div>
-      <p class="empty-hint" id="empty-hint" hidden>먼저 사이트를 골라 주세요.<br>나에게 방해되는 곳만 직접 추가할 수 있어요.</p>
+      <div class="section-row">
+        <h2 id="sites-title">차단 목록</h2>
+        <button id="edit-button" class="text-button" type="button"><span id="edit-label">편집</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
+      </div>
+      <div id="site-list" class="site-list"></div>
+      <p id="empty-hint" class="empty-state" hidden>등록된 사이트 없음</p>
+      <button id="more-button" class="more-button" type="button" hidden></button>
     </section>
-    <footer class="popup-footer"><span class="tiny-line" aria-hidden="true"></span>집중은 작게, 한 번에 하나씩.</footer>
   </main>
 </body>
 </html>

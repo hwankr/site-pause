@@ -3,98 +3,92 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>잠깐, 집중 · 설치 안내</title>
+  <title>잠깐, 집중 · 설치</title>
   <style>
-    :root { color-scheme: light; --paper: #f7f5ee; --ink: #203e32; --muted: #637067; --line: #dedfd4; --green: #245443; }
+    :root { color-scheme: light; --background: #f5f6f8; --ink: #191f28; --muted: #6b7684; --line: #edf0f3; --blue: #3182f6; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.75 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; word-break: keep-all; }
-    main { max-width: 1020px; margin: auto; padding: 44px 28px 36px; }
-    .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.03em; }
-    .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; color: var(--paper); background: var(--green); font-size: 16px; line-height: 1; }
-    .eyebrow { margin: 43px 0 12px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .16em; }
-    h1 { margin: 0 0 18px; font-size: clamp(30px, 5vw, 48px); font-weight: 740; line-height: 1.32; letter-spacing: -.065em; }
-    .intro { margin: 0; max-width: 680px; color: var(--muted); font-size: 16px; }
-    .layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, 1fr); gap: 28px; margin-top: 34px; align-items: start; }
-    .steps { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-    .steps > li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; padding: 23px 0; border-bottom: 1px solid var(--line); }
-    .number { display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid #b5c4b6; border-radius: 50%; font-size: 12px; font-weight: 700; }
-    h2 { margin: 0 0 7px; font-size: 17px; font-weight: 750; letter-spacing: -.035em; }
-    p { margin: 0 0 10px; }
-    p:last-child { margin-bottom: 0; }
-    strong { font-weight: 750; }
-    code { color: #244b3b; font-family: ui-monospace, Consolas, monospace; font-size: .91em; }
-    .address { display: block; margin: 10px 0; padding: 12px 14px; background: #eeeee4; border: 1px solid var(--line); border-radius: 9px; overflow-wrap: anywhere; word-break: break-all; line-height: 1.65; user-select: all; }
-    .small { font-size: 12px; color: var(--muted); line-height: 1.8; }
-    a { color: var(--green); text-underline-offset: 3px; }
-    aside { padding: 24px; border-radius: 16px; background: #e9eee4; }
-    aside h2 { font-size: 20px; margin-bottom: 14px; }
-    aside ul { margin: 0; padding-left: 18px; }
-    aside li { margin-bottom: 12px; color: #40584b; font-size: 13px; }
-    aside li:last-child { margin-bottom: 0; }
-    .privacy { margin-top: 22px; padding-top: 18px; border-top: 1px solid #cdd8c9; color: #536557; font-size: 12px; }
-    .tag { display: inline-block; padding: 1px 8px; border-radius: 5px; background: var(--green); color: #fff; font-size: 12px; font-weight: 750; vertical-align: 1px; }
-    footer { margin-top: 30px; color: var(--muted); font-size: 12px; }
-    @media (max-width: 750px) { main { padding: 28px 22px; } .eyebrow { margin-top: 30px; } .layout { grid-template-columns: 1fr; gap: 22px; } }
-    @media print { main { max-width: none; padding: 0; } body { background: white; font-size: 12px; } .eyebrow { margin-top: 20px; } h1 { font-size: 30px; } .layout { gap: 22px; } .steps > li { padding: 14px 0; } aside { padding: 18px; } }
+    body { margin: 0; color: var(--ink); background: var(--background); font: 15px/1.6 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; word-break: keep-all; }
+    main { max-width: 760px; margin: auto; padding: 44px 24px 48px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 750; letter-spacing: -.04em; }
+    .brand-mark { display: flex; align-items: center; justify-content: center; gap: 4px; width: 30px; height: 30px; background: var(--blue); border-radius: 10px; }
+    .brand-mark i { width: 3px; height: 13px; background: white; border-radius: 2px; }
+    .heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 35px 0 23px; }
+    h1 { margin: 0; font-size: 30px; font-weight: 750; letter-spacing: -.06em; line-height: 1.3; }
+    .download { flex: none; display: inline-flex; justify-content: center; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 12px; background: #e8f1ff; color: #1b64da; text-decoration: none; font-size: 13px; font-weight: 650; }
+    .steps { padding: 0; margin: 0; list-style: none; background: white; border-radius: 18px; }
+    .steps > li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; padding: 26px; }
+    .steps > li + li { border-top: 1px solid var(--line); }
+    .number { display: grid; place-items: center; width: 28px; height: 28px; background: #e8f1ff; color: #1b64da; border-radius: 50%; font-size: 13px; font-weight: 750; }
+    h2 { margin: 1px 0 9px; font-size: 17px; line-height: 1.5; font-weight: 700; letter-spacing: -.035em; }
+    p { margin: 0; }
+    .sequence { font-size: 14px; color: #4e5968; }
+    .sequence + .sequence { margin-top: 8px; }
+    .arrow { color: #8b95a1; padding: 0 5px; }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .address { display: block; margin-top: 12px; padding: 12px 14px; color: #4e5968; background: var(--background); border-radius: 10px; overflow-wrap: anywhere; word-break: break-all; user-select: all; line-height: 1.7; }
+    .folder-note { margin-top: 10px; color: var(--muted); font-size: 12px; }
+    details { margin-top: 16px; padding: 0 24px; background: white; border-radius: 18px; }
+    summary { padding: 19px 0; cursor: pointer; font-size: 14px; font-weight: 650; }
+    .info { padding: 0 0 22px; border-top: 1px solid var(--line); }
+    dl { margin: 18px 0; }
+    dl > div { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 16px; margin-top: 13px; font-size: 13px; }
+    dt { font-weight: 650; }
+    dd { margin: 0; color: var(--muted); }
+    a { color: #1b64da; text-underline-offset: 3px; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #a8caff; outline-offset: 4px; border-radius: 4px; }
+    .reference { font-size: 12px; }
+    @media (max-width: 520px) { main { padding: 28px 16px; } .heading { margin-top: 28px; } h1 { font-size: 27px; } .steps > li { padding: 22px 18px; gap: 12px; } details { padding: 0 18px; } dl > div { grid-template-columns: 1fr; gap: 3px; } }
+    @media print { body { background: white; } main { padding: 0; } .download { display: none; } .steps { border: 1px solid var(--line); } }
   </style>
 </head>
 <body>
   <main>
-    <div class="brand"><span class="mark" aria-hidden="true">Ⅱ</span> 잠깐, 집중</div>
-    <p class="eyebrow">CHROME · QUICK START</p>
-    <h1>설치는 한 번만.<br>차단은 버튼 하나로.</h1>
-    <p class="intro">차단할 사이트를 직접 정하고, 공부할 때 켜세요. 타이머 없이 사용하는 Chrome 확장 프로그램입니다. 아래 순서대로 Chrome에 불러오면 사용할 수 있어요.</p>
-
-    <div class="layout">
-      <ol class="steps">
-        <li>
-          <span class="number" aria-hidden="true">1</span>
-          <div>
-            <h2>확장 프로그램 화면 열기</h2>
-            <p>Chrome 주소창에 아래 주소를 입력하고, 오른쪽 위의 <strong>개발자 모드</strong>를 켜세요.</p>
-            <code class="address">chrome://extensions</code>
-          </div>
-        </li>
-        <li>
-          <span class="number" aria-hidden="true">2</span>
-          <div>
-            <h2>준비된 폴더 불러오기</h2>
-            <p><strong>압축해제된 확장 프로그램을 로드합니다</strong>를 누른 뒤, 아래 <strong>site-pause</strong> 폴더를 선택하세요.</p>
-            <code class="address">C:\Users\hwan\Documents\Codex\2026-09-18\sd\outputs\site-pause</code>
-            <p class="small">폴더 안에 <code>manifest.json</code> 파일이 있어야 해요. ZIP 파일을 받았다면 먼저 압축을 풀고, 그 안의 <code>site-pause</code> 폴더를 선택하세요. 설치 후에도 이 폴더를 이동하거나 삭제하지 마세요.</p>
-            <p class="small"><a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 공식 설치 안내 ↗</a></p>
-          </div>
-        </li>
-        <li>
-          <span class="number" aria-hidden="true">3</span>
-          <div>
-            <h2>고정하고, 차단 목록 저장하기</h2>
-            <p>도구 모음의 <strong>확장 프로그램</strong> 아이콘에서 <strong>잠깐, 집중</strong>을 고정하세요. 확장 프로그램을 열고 차단 목록을 편집한 뒤 저장하세요.</p>
-            <p class="small">예: <code>youtube.com</code>, <code>reddit.com</code>. 도메인과 하위 도메인 전체를 차단해요. 특정 페이지 경로만 차단하는 방식은 아니에요.</p>
-          </div>
-        </li>
-        <li>
-          <span class="number" aria-hidden="true">4</span>
-          <div>
-            <h2>공부할 때 켜고, 쉬는 시간에 끄기</h2>
-            <p>확장 프로그램에서 차단을 켜면 아이콘에 <span class="tag">ON</span>이 표시돼요. 쉬는 시간에는 같은 화면에서 차단을 끄세요.</p>
-            <p class="small">이미 열려 있던 대상 사이트도 차단 화면으로 바뀌니, 작성 중인 내용은 먼저 저장하세요. 차단을 꺼도 사이트가 자동으로 다시 열리지는 않아요. 차단 화면의 사이트 열기 버튼을 누르거나 직접 다시 방문하세요.</p>
-          </div>
-        </li>
-      </ol>
-
-      <aside aria-label="사용 안내">
-        <h2>알아두면 좋아요</h2>
-        <ul>
-          <li><strong>사이트 액세스는 ‘모든 사이트’로</strong><br>Chrome의 확장 프로그램 세부정보에서 이 설정을 유지해야 원하는 차단 목록이 작동해요. 실제 차단 대상은 저장한 목록뿐이에요.</li>
-          <li><strong>브라우저를 다시 열어도 유지</strong><br>차단 목록과 켜짐·꺼짐 상태가 저장돼요. 필요할 때 직접 꺼주세요.</li>
-          <li><strong>현재 Chrome 프로필에서 사용</strong><br>확장 프로그램을 끄거나 제거하면 차단되지 않아요. 다른 프로필이나 다른 브라우저에는 적용되지 않아요.</li>
-          <li><strong>시크릿 창은 별도 허용</strong><br>기본적으로 시크릿 창에는 적용되지 않아요. 사용하려면 확장 프로그램 세부정보에서 ‘시크릿 모드에서 허용’을 직접 켜세요.</li>
-        </ul>
-        <p class="privacy">차단 목록과 켜짐·꺼짐 상태는 이 브라우저에만 저장돼요. 외부 서버나 분석 도구를 사용하지 않으며, 방문 기록을 수집해 저장하지 않아요.</p>
-      </aside>
-    </div>
-    <footer>이 파일은 설치 안내입니다. 확장 프로그램은 위 순서에 따라 Chrome에 직접 불러와야 해요.</footer>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span>잠깐, 집중</div>
+    <div class="heading"><h1>Chrome에 설치</h1><a class="download" href="site-pause.zip" download>ZIP 다운로드</a></div>
+    <ol class="steps">
+      <li>
+        <span class="number" aria-hidden="true">1</span>
+        <div>
+          <h2>개발자 모드 켜기</h2>
+          <p class="sequence">Chrome 주소창에 입력 <span class="arrow" aria-hidden="true">→</span> 개발자 모드 켜기</p>
+          <code class="address">chrome://extensions</code>
+        </div>
+      </li>
+      <li>
+        <span class="number" aria-hidden="true">2</span>
+        <div>
+          <h2>확장 프로그램 불러오기</h2>
+          <p class="sequence">압축해제된 확장 프로그램 로드 <span class="arrow" aria-hidden="true">→</span> <strong>site-pause</strong> 폴더 선택</p>
+          <code class="address">C:\Users\hwan\Documents\Codex\2026-09-18\sd\outputs\site-pause</code>
+          <p class="folder-note">ZIP 설치: 압축 해제 → <code>manifest.json</code>이 있는 <code>site-pause</code> 폴더 선택</p>
+        </div>
+      </li>
+      <li>
+        <span class="number" aria-hidden="true">3</span>
+        <div>
+          <h2>차단 시작</h2>
+          <p class="sequence">확장 프로그램 메뉴 <span class="arrow" aria-hidden="true">→</span> 잠깐, 집중 고정</p>
+          <p class="sequence">사이트 목록 저장 <span class="arrow" aria-hidden="true">→</span> 차단 켜기</p>
+        </div>
+      </li>
+    </ol>
+    <details>
+      <summary>사용 정보</summary>
+      <div class="info">
+        <dl>
+          <div><dt>업데이트</dt><dd>같은 폴더에 파일 교체 → <code>chrome://extensions</code> → 잠깐, 집중의 새로고침</dd></div>
+          <div><dt>설치 폴더</dt><dd>설치 후 폴더 위치 유지. 폴더 이동·삭제 시 재설치 필요.</dd></div>
+          <div><dt>사이트 액세스</dt><dd>확장 프로그램 세부정보 → 모든 사이트. 실제 차단은 저장한 목록에만 적용.</dd></div>
+          <div><dt>차단 범위</dt><dd>등록한 도메인과 하위 도메인 전체. 특정 페이지 경로 단위 차단 제외.</dd></div>
+          <div><dt>열려 있는 탭</dt><dd>차단 시 대상 탭도 전환. 작성 중인 내용은 미리 저장. 해제 후 ‘사이트 열기’로 복귀.</dd></div>
+          <div><dt>설정 저장</dt><dd>차단 목록과 켜짐·꺼짐 상태는 현재 Chrome 프로필에 저장. 브라우저 재실행 후에도 유지.</dd></div>
+          <div><dt>다른 환경</dt><dd>다른 프로필·브라우저에는 미적용. 확장 프로그램 비활성화·삭제 시 차단 해제.</dd></div>
+          <div><dt>시크릿 창</dt><dd>기본 미적용. 확장 프로그램 세부정보 → 시크릿 모드에서 허용.</dd></div>
+          <div><dt>개인정보</dt><dd>외부 서버·분석 도구 미사용. 방문 기록 수집·저장 없음.</dd></div>
+        </dl>
+        <a class="reference" href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 공식 설치 안내 ↗</a>
+      </div>
+    </details>
   </main>
 </body>
 </html>

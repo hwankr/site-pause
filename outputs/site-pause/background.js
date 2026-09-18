@@ -5,7 +5,6 @@ const ORIGIN = chrome.runtime.getURL('');
 let state;
 let queue = Promise.resolve();
 
-// All state/rule mutations are serialized, including navigation enforcement.
 function enqueue(task) {
   const result = queue.then(task);
   queue = result.catch(error => console.error('Site Pause:', error));
@@ -24,7 +23,7 @@ async function syncRules(next) {
 async function updateBadge() {
   await Promise.all([
     chrome.action.setBadgeText({text: state.enabled ? 'ON' : ''}),
-    chrome.action.setBadgeBackgroundColor({color: '#245443'}),
+    chrome.action.setBadgeBackgroundColor({color: '#3182f6'}),
     chrome.action.setTitle({title: state.enabled ? `잠깐, 집중 · ${state.sites.length}개 사이트 차단 중` : '잠깐, 집중 · 차단 꺼짐'})
   ]);
 }
@@ -49,11 +48,9 @@ async function blockTab(tab) {
   if (!site) return;
   const target = new URL(chrome.runtime.getURL('blocked.html'));
   target.searchParams.set('site', site);
-  // Keep this tab's return address in the fragment so it is not sent in requests.
-  // Do not persist browsing history or tab addresses in extension storage.
   target.hash = new URLSearchParams({from: address}).toString();
   try { await chrome.tabs.update(tab.id, {url: target.href}); }
-  catch { /* A tab may close or navigate away during the query. */ }
+  catch {}
 }
 
 async function enforceAllTabs() {
@@ -61,8 +58,6 @@ async function enforceAllTabs() {
 }
 
 async function commit(next) {
-  // Rules update atomically. Roll back if saving fails so the UI never reports
-  // a persisted OFF state while ON rules remain active (or the reverse).
   const previous = state;
   await syncRules(next);
   try { await chrome.storage.local.set({[KEY]: next}); }
@@ -107,9 +102,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (!changeInfo.url && !changeInfo.status) return;
   enqueue(async () => {
     await ensureLoaded();
-    // Fetch current tab state instead of acting on a stale queued event URL.
     if (state.enabled) {
-      try { await blockTab(await chrome.tabs.get(tabId)); } catch { /* Tab closed. */ }
+      try { await blockTab(await chrome.tabs.get(tabId)); } catch {}
     }
   });
 });
@@ -117,7 +111,7 @@ chrome.tabs.onActivated.addListener(({tabId}) => {
   enqueue(async () => {
     await ensureLoaded();
     if (state.enabled) {
-      try { await blockTab(await chrome.tabs.get(tabId)); } catch { /* Tab closed. */ }
+      try { await blockTab(await chrome.tabs.get(tabId)); } catch {}
     }
   });
 });
@@ -125,5 +119,4 @@ chrome.tabs.onActivated.addListener(({tabId}) => {
 function restore() { enqueue(async () => { await ensureLoaded(); await enforceAllTabs(); }); }
 chrome.runtime.onInstalled.addListener(restore);
 chrome.runtime.onStartup.addListener(restore);
-// MV3 can stop the worker while DNR rules keep running. Reconcile each new run.
 restore();

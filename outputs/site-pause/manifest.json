@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "잠깐, 집중",
-  "version": "1.0.0",
-  "description": "버튼 하나로 방해되는 사이트를 잠시 차단하세요. 차단 목록과 설정은 이 브라우저에만 저장됩니다.",
+  "version": "1.1.0",
+  "description": "원하는 사이트만, 버튼 하나로 차단.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "declarativeNetRequest"],
   "host_permissions": ["http://*/*", "https://*/*"],
