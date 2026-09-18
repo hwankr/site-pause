@@ -13,10 +13,12 @@
       <a class="brand" href="options.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span>잠깐, 집중</a>
     </header>
     <main>
-      <h1 class="page-title">사이트 관리</h1>
+      <div class="page-intro">
+        <h1 class="page-title">사이트 관리</h1>
+      </div>
       <section class="control-card" aria-labelledby="control-title">
         <div class="section-row">
-          <div class="control-copy"><h2 id="control-title">사이트 차단</h2><span id="toggle-label" class="control-status">불러오는 중</span></div>
+          <div class="control-copy"><h2 id="control-title">차단</h2><span id="toggle-label" class="sr-only">불러오는 중</span></div>
           <button id="toggle-button" class="switch-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
             <span class="switch-track" aria-hidden="true"><span></span></span>
           </button>
@@ -24,22 +26,49 @@
         <p id="toggle-message" class="message" role="status" hidden></p>
       </section>
       <section class="settings-card" aria-labelledby="list-title">
-        <div class="section-row">
-          <h2 id="list-title">차단 목록</h2>
-          <span class="count-badge" id="saved-count" aria-label="차단 목록 불러오는 중">—</span>
-        </div>
-        <ul id="site-list" class="settings-list" aria-label="차단 사이트"></ul>
-        <div id="empty-state" class="empty-state" hidden>등록된 사이트 없음</div>
-        <form id="add-form" class="add-site-row">
-          <input id="site-input" class="site-input" type="text" aria-label="추가할 사이트 주소" placeholder="example.com" spellcheck="false" autocapitalize="off" autocomplete="off" disabled>
-          <button id="add-button" class="secondary-button" type="submit" disabled>추가</button>
+        <form id="add-form" class="rule-composer" data-action="block" data-scope="site" aria-label="차단·허용 규칙 추가">
+          <div class="composer-controls">
+            <fieldset class="action-segment">
+              <legend class="sr-only">차단 또는 허용</legend>
+              <span class="segment-indicator" aria-hidden="true"></span>
+              <label class="segment-option"><input type="radio" name="rule-action" value="block" checked disabled><span>차단</span></label>
+              <label class="segment-option"><input type="radio" name="rule-action" value="allow" disabled><span>허용</span></label>
+            </fieldset>
+            <div class="scope-picker">
+              <button id="scope-button" class="scope-button" type="button" aria-label="적용 범위: 사이트 전체" aria-haspopup="listbox" aria-controls="scope-menu" aria-expanded="false" disabled>
+                <span id="scope-label">사이트 전체</span>
+                <svg class="scope-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <div id="scope-menu" class="scope-menu" role="listbox" aria-label="적용 범위" hidden>
+                <button class="scope-option" type="button" role="option" data-scope="site" aria-selected="true" tabindex="-1">
+                  <span>사이트 전체</span><svg class="scope-check" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="scope-option" type="button" role="option" data-scope="page" aria-selected="false" tabindex="-1">
+                  <span>특정 페이지</span><svg class="scope-check" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="address-row">
+            <div class="address-input">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m10 13 4-4m-5 6-1.5 1.5a3.54 3.54 0 0 1-5-5L7 8m10 8 3.5-3.5a3.54 3.54 0 0 0-5-5L14 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <input id="site-input" class="site-input" type="text" aria-label="차단할 사이트 주소" placeholder="youtube.com" spellcheck="false" autocapitalize="off" autocomplete="off" disabled>
+            </div>
+            <button id="add-button" class="secondary-button add-button" type="submit" disabled><svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>추가</span></button>
+          </div>
         </form>
-        <div class="quick-buttons" aria-label="빠른 추가">
-          <button type="button" data-site="youtube.com" disabled>YouTube</button>
-          <button type="button" data-site="instagram.com" disabled>Instagram</button>
-          <button type="button" data-site="x.com" disabled>X</button>
-          <button type="button" data-site="reddit.com" disabled>Reddit</button>
+        <div class="quick-buttons" aria-label="빠른 규칙 추가">
+          <button type="button" data-site="youtube.com" disabled>YouTube 차단</button>
+          <button type="button" data-site="instagram.com" disabled>Instagram 차단</button>
+          <button type="button" data-site="x.com" disabled>X 차단</button>
+          <button type="button" data-site="music.youtube.com" data-rule-kind="allowedSites" disabled>YouTube Music 허용</button>
         </div>
+        <div class="rules-header section-row">
+          <h2 id="list-title">목록</h2>
+          <span class="count-badge" id="saved-count" aria-label="차단·허용 목록 불러오는 중">—</span>
+        </div>
+        <ul id="site-list" class="settings-list" aria-label="차단·허용 규칙"></ul>
+        <div id="empty-state" class="empty-state" hidden>등록된 규칙 없음</div>
         <div class="save-row">
           <span id="draft-status" class="draft-status" role="status" hidden>미저장</span>
           <button id="save-button" class="primary-button" type="button" disabled>저장</button>

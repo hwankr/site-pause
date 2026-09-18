@@ -1,8 +1,14 @@
-import { normalizeSites } from './core.js';
+import { MAX_SITES, normalizeSites, normalizePages, normalizeRuleLists } from './core.js';
 import { request, observeState, showMessage } from './shared-ui.js';
 
 const byId = (id) => document.getElementById(id);
 const input = byId('site-input');
+const form = byId('add-form');
+const actionInputs = [...document.querySelectorAll('input[name="rule-action"]')];
+const scopeButton = byId('scope-button');
+const scopeMenu = byId('scope-menu');
+const scopePicker = scopeButton.closest('.scope-picker');
+const scopeOptions = [...scopeMenu.querySelectorAll('[data-scope]')];
 const list = byId('site-list');
 const add = byId('add-button');
 const save = byId('save-button');
@@ -12,12 +18,60 @@ let currentState = null;
 let initialized = false;
 let saving = false;
 let toggling = false;
-let savedSites = [];
-let draftSites = [];
+let selectedScope = 'site';
+const ruleKinds = {
+  sites: { label: '사이트 차단', page: false, allow: false },
+  blockedPages: { label: '페이지 차단', page: true, allow: false },
+  allowedSites: { label: '사이트 허용', page: false, allow: true },
+  allowedPages: { label: '페이지 허용', page: true, allow: true }
+};
+const copyRules = (state) => Object.fromEntries(Object.keys(ruleKinds).map((kind) => [kind, [...(state[kind] || [])]]));
+const ruleEntries = (rules) => Object.keys(ruleKinds).flatMap((kind) => rules[kind].map((value) => ({ kind, value })));
+let savedRules = copyRules({});
+let draftRules = copyRules({});
 let messageTimer;
 
 const listsMatch = (left, right) => left.length === right.length && left.every((site, index) => site === right[index]);
-const hasDraft = () => input.value.trim() !== '' || !listsMatch(draftSites, savedSites);
+const hasDraft = () => input.value.trim() !== '' || Object.keys(ruleKinds).some((kind) => !listsMatch(draftRules[kind], savedRules[kind]));
+const selectedAction = () => actionInputs.find((control) => control.checked).value;
+const selectedKind = () => selectedAction() === 'allow'
+  ? (selectedScope === 'page' ? 'allowedPages' : 'allowedSites')
+  : (selectedScope === 'page' ? 'blockedPages' : 'sites');
+const entryKey = (kind, value) => `${kind}\n${value}`;
+
+function updateComposer() {
+  const kind = ruleKinds[selectedKind()];
+  form.dataset.action = selectedAction();
+  form.dataset.scope = selectedScope;
+  input.placeholder = kind.page ? '페이지 주소' : kind.allow ? 'music.youtube.com' : 'youtube.com';
+  input.setAttribute('aria-label', `${kind.allow ? '허용' : '차단'}할 ${kind.page ? '페이지' : '사이트'} 주소`);
+}
+
+function closeScopeMenu(returnFocus = false) {
+  scopeMenu.hidden = true;
+  scopeButton.setAttribute('aria-expanded', 'false');
+  if (returnFocus && !scopeButton.disabled) scopeButton.focus();
+}
+
+function openScopeMenu() {
+  if (!initialized || saving || toggling) return;
+  scopeMenu.hidden = false;
+  scopeButton.setAttribute('aria-expanded', 'true');
+  scopeOptions.find((option) => option.dataset.scope === selectedScope).focus();
+}
+
+function selectScope(scope) {
+  selectedScope = scope;
+  const selected = scopeOptions.find((option) => option.dataset.scope === scope);
+  const label = selected.querySelector('span').textContent;
+  byId('scope-label').textContent = label;
+  scopeButton.setAttribute('aria-label', `적용 범위: ${label}`);
+  scopeOptions.forEach((option) => option.setAttribute('aria-selected', String(option === selected)));
+  updateComposer();
+  input.removeAttribute('aria-invalid');
+  saveMessage('');
+  closeScopeMenu(true);
+}
 
 function saveMessage(text, kind = 'error') {
   clearTimeout(messageTimer);
@@ -31,50 +85,65 @@ function updateControls() {
   const busy = saving || toggling;
   const dirty = hasDraft();
   input.disabled = !initialized || busy;
+  actionInputs.forEach((control) => { control.disabled = !initialized || busy; });
+  scopeButton.disabled = !initialized || busy;
+  scopeOptions.forEach((option) => { option.disabled = !initialized || busy; });
+  if (!initialized || busy) closeScopeMenu();
   add.disabled = !initialized || busy || !input.value.trim();
   save.disabled = !initialized || busy || !dirty;
   save.textContent = saving ? '저장 중' : '저장';
   byId('draft-status').hidden = !dirty;
   byId('draft-status').classList.toggle('is-dirty', dirty);
-  toggle.disabled = !initialized || busy || (!currentState.enabled && !currentState.sites.length);
+  toggle.disabled = !initialized || busy || (!currentState.enabled && !savedRules.sites.length && !savedRules.blockedPages.length);
   quickButtons.forEach((button) => {
-    button.disabled = !initialized || busy || draftSites.includes(button.dataset.site);
+    const added = draftRules[button.dataset.ruleKind || 'sites'].includes(button.dataset.site);
+    button.dataset.added = String(added);
+    button.disabled = !initialized || busy || added;
   });
   list.querySelectorAll('button').forEach((button) => { button.disabled = busy; });
 }
 
-function renderList() {
-  list.replaceChildren(...draftSites.map((site) => {
+function renderList(newEntries = new Set()) {
+  const entries = ruleEntries(draftRules);
+  list.replaceChildren(...entries.map(({ kind, value }) => {
+    const rule = ruleKinds[kind];
     const row = document.createElement('li');
-    row.className = 'site-row';
+    row.className = `site-row${newEntries.has(entryKey(kind, value)) ? ' is-new' : ''}`;
     const avatar = document.createElement('span');
     avatar.className = 'site-avatar';
-    avatar.textContent = site.charAt(0).toUpperCase();
+    avatar.textContent = (rule.page ? new URL(value).hostname : value).replace(/^www\./, '').charAt(0).toUpperCase();
     avatar.setAttribute('aria-hidden', 'true');
+    const detail = document.createElement('span');
+    detail.className = 'rule-detail';
+    const badge = document.createElement('span');
+    badge.className = `rule-kind${rule.allow ? ' is-allow' : ''}`;
+    badge.textContent = rule.label;
     const domain = document.createElement('span');
     domain.className = 'site-domain';
-    domain.textContent = site;
-    domain.title = site;
+    domain.textContent = value;
+    domain.title = value;
+    detail.append(badge, domain);
     const remove = document.createElement('button');
     remove.className = 'remove-button icon-button';
     remove.type = 'button';
-    remove.dataset.site = site;
-    remove.setAttribute('aria-label', `${site} 삭제`);
+    remove.dataset.site = value;
+    remove.dataset.ruleKind = kind;
+    remove.setAttribute('aria-label', `${rule.label} ${value} 삭제`);
     remove.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    row.append(avatar, domain, remove);
+    row.append(avatar, detail, remove);
     return row;
   }));
-  byId('empty-state').hidden = draftSites.length > 0;
-  byId('saved-count').textContent = String(draftSites.length);
-  byId('saved-count').setAttribute('aria-label', `차단 목록 ${draftSites.length}개`);
+  byId('empty-state').hidden = entries.length > 0;
+  byId('saved-count').textContent = `${entries.length} / ${MAX_SITES}`;
+  byId('saved-count').setAttribute('aria-label', `차단·허용 규칙 ${entries.length}개, 최대 ${MAX_SITES}개`);
 }
 
 function render(state) {
   const preserveDraft = initialized && hasDraft();
   currentState = state;
-  savedSites = [...state.sites];
+  savedRules = copyRules(state);
   if (!preserveDraft) {
-    draftSites = [...savedSites];
+    draftRules = copyRules(savedRules);
     renderList();
   }
   initialized = true;
@@ -84,18 +153,20 @@ function render(state) {
   updateControls();
 }
 
-function stageSites(value, clearInput = false) {
+function stageRules(value, clearInput = false, kind = selectedKind()) {
   try {
-    const entries = normalizeSites(value);
+    const normalize = ruleKinds[kind].page ? normalizePages : normalizeSites;
+    const entries = normalize(value);
     if (!entries.length) return false;
-    const nextSites = normalizeSites([...draftSites, ...entries]);
-    const duplicatesOnly = listsMatch(nextSites, draftSites);
-    draftSites = nextSites;
+    const nextRules = normalizeRuleLists({ ...draftRules, [kind]: normalize([...draftRules[kind], ...entries]) });
+    const duplicatesOnly = listsMatch(nextRules[kind], draftRules[kind]);
+    const newEntries = new Set(nextRules[kind].filter((entry) => !draftRules[kind].includes(entry)).map((entry) => entryKey(kind, entry)));
+    draftRules = nextRules;
     if (clearInput) input.value = '';
     input.removeAttribute('aria-invalid');
-    renderList();
+    renderList(newEntries);
     updateControls();
-    saveMessage(duplicatesOnly ? '이미 추가된 사이트' : '', 'info');
+    saveMessage(duplicatesOnly ? '이미 추가된 규칙이에요.' : '', 'info');
     return true;
   } catch (error) {
     input.setAttribute('aria-invalid', 'true');
@@ -106,6 +177,62 @@ function stageSites(value, clearInput = false) {
 }
 
 const observer = observeState(render, (text) => saveMessage(text));
+updateComposer();
+
+actionInputs.forEach((control) => control.addEventListener('change', () => {
+  updateComposer();
+  input.removeAttribute('aria-invalid');
+  saveMessage('');
+}));
+
+scopeButton.addEventListener('click', () => {
+  if (scopeMenu.hidden) openScopeMenu();
+  else closeScopeMenu(true);
+});
+
+scopeButton.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    openScopeMenu();
+  } else if (event.key === 'Escape') {
+    closeScopeMenu();
+  }
+});
+
+scopeMenu.addEventListener('keydown', (event) => {
+  const index = scopeOptions.indexOf(document.activeElement);
+  let nextIndex;
+  if (event.key === 'ArrowDown') nextIndex = (index + 1) % scopeOptions.length;
+  else if (event.key === 'ArrowUp') nextIndex = (index + scopeOptions.length - 1) % scopeOptions.length;
+  else if (event.key === 'Home') nextIndex = 0;
+  else if (event.key === 'End') nextIndex = scopeOptions.length - 1;
+  else if (event.key === 'Escape') {
+    event.preventDefault();
+    closeScopeMenu(true);
+    return;
+  } else if ((event.key === 'Enter' || event.key === ' ') && index >= 0) {
+    event.preventDefault();
+    selectScope(scopeOptions[index].dataset.scope);
+    return;
+  }
+  if (nextIndex !== undefined) {
+    event.preventDefault();
+    scopeOptions[nextIndex].focus();
+  }
+});
+
+scopeOptions.forEach((option) => option.addEventListener('click', () => {
+  if (!initialized || saving || toggling) return;
+  selectScope(option.dataset.scope);
+}));
+
+scopePicker.addEventListener('focusout', (event) => {
+  if (!scopePicker.contains(event.relatedTarget)) closeScopeMenu();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (!scopePicker.contains(event.target)) closeScopeMenu();
+});
 
 input.addEventListener('input', () => {
   input.removeAttribute('aria-invalid');
@@ -124,20 +251,21 @@ input.addEventListener('paste', (event) => {
 byId('add-form').addEventListener('submit', (event) => {
   event.preventDefault();
   if (!initialized || saving || toggling) return;
-  stageSites(input.value, true);
+  stageRules(input.value, true);
   input.focus();
 });
 
 quickButtons.forEach((button) => button.addEventListener('click', () => {
   if (!initialized || saving || toggling) return;
-  stageSites(button.dataset.site);
+  stageRules(button.dataset.site, false, button.dataset.ruleKind || 'sites');
 }));
 
 list.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-site]');
   if (!button || saving || toggling) return;
-  const index = draftSites.indexOf(button.dataset.site);
-  draftSites = draftSites.filter((site) => site !== button.dataset.site);
+  const kind = button.dataset.ruleKind;
+  const index = ruleEntries(draftRules).findIndex((entry) => entry.kind === kind && entry.value === button.dataset.site);
+  draftRules = { ...draftRules, [kind]: draftRules[kind].filter((value) => value !== button.dataset.site) };
   renderList();
   updateControls();
   saveMessage('');
@@ -147,15 +275,15 @@ list.addEventListener('click', (event) => {
 
 save.addEventListener('click', async () => {
   if (!currentState || saving || toggling) return;
-  if (input.value.trim() && !stageSites(input.value, true)) return;
-  const submittedSites = [...draftSites];
+  if (input.value.trim() && !stageRules(input.value, true)) return;
+  const submittedRules = copyRules(draftRules);
   saving = true;
   updateControls();
   saveMessage('');
   try {
-    const state = await request('SAVE_SITES', { sites: submittedSites });
-    savedSites = [...state.sites];
-    draftSites = [...state.sites];
+    const state = await request('SAVE_RULES', submittedRules);
+    savedRules = copyRules(state);
+    draftRules = copyRules(state);
     renderList();
     observer.accept(state);
     saveMessage('저장 완료', 'success');

@@ -20,7 +20,8 @@
         <h1 id="control-title">사이트 차단</h1>
         <span class="status-pill" id="status-label">불러오는 중</span>
       </div>
-      <div class="blocking-value"><strong id="site-count">0</strong><span>개 사이트</span></div>
+      <div class="blocking-value"><strong id="site-count">0</strong><span>개 차단 규칙</span></div>
+      <p id="exception-count" class="exception-count" hidden></p>
       <button id="toggle-button" class="primary-button toggle-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
         <span id="toggle-label">불러오는 중</span><span class="switch-track" aria-hidden="true"><span></span></span>
       </button>
@@ -32,7 +33,7 @@
         <button id="edit-button" class="text-button" type="button"><span id="edit-label">편집</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></button>
       </div>
       <div id="site-list" class="site-list"></div>
-      <p id="empty-hint" class="empty-state" hidden>등록된 사이트 없음</p>
+      <p id="empty-hint" class="empty-state" hidden>등록된 규칙 없음</p>
       <button id="more-button" class="more-button" type="button" hidden></button>
     </section>
   </main>
