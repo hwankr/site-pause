@@ -1,0 +1,10 @@
+# Temporary scripts, screenshots, and isolated browser profiles.
+/work/
+
+# Local dependency and editor files.
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

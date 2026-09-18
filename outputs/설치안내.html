@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>잠깐, 집중 · 설치 안내</title>
+  <style>
+    :root { color-scheme: light; --paper: #f7f5ee; --ink: #203e32; --muted: #637067; --line: #dedfd4; --green: #245443; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.75 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; word-break: keep-all; }
+    main { max-width: 1020px; margin: auto; padding: 44px 28px 36px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -.03em; }
+    .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; color: var(--paper); background: var(--green); font-size: 16px; line-height: 1; }
+    .eyebrow { margin: 43px 0 12px; color: var(--muted); font-size: 11px; font-weight: 750; letter-spacing: .16em; }
+    h1 { margin: 0 0 18px; font-size: clamp(30px, 5vw, 48px); font-weight: 740; line-height: 1.32; letter-spacing: -.065em; }
+    .intro { margin: 0; max-width: 680px; color: var(--muted); font-size: 16px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, 1fr); gap: 28px; margin-top: 34px; align-items: start; }
+    .steps { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .steps > li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; padding: 23px 0; border-bottom: 1px solid var(--line); }
+    .number { display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid #b5c4b6; border-radius: 50%; font-size: 12px; font-weight: 700; }
+    h2 { margin: 0 0 7px; font-size: 17px; font-weight: 750; letter-spacing: -.035em; }
+    p { margin: 0 0 10px; }
+    p:last-child { margin-bottom: 0; }
+    strong { font-weight: 750; }
+    code { color: #244b3b; font-family: ui-monospace, Consolas, monospace; font-size: .91em; }
+    .address { display: block; margin: 10px 0; padding: 12px 14px; background: #eeeee4; border: 1px solid var(--line); border-radius: 9px; overflow-wrap: anywhere; word-break: break-all; line-height: 1.65; user-select: all; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.8; }
+    a { color: var(--green); text-underline-offset: 3px; }
+    aside { padding: 24px; border-radius: 16px; background: #e9eee4; }
+    aside h2 { font-size: 20px; margin-bottom: 14px; }
+    aside ul { margin: 0; padding-left: 18px; }
+    aside li { margin-bottom: 12px; color: #40584b; font-size: 13px; }
+    aside li:last-child { margin-bottom: 0; }
+    .privacy { margin-top: 22px; padding-top: 18px; border-top: 1px solid #cdd8c9; color: #536557; font-size: 12px; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 5px; background: var(--green); color: #fff; font-size: 12px; font-weight: 750; vertical-align: 1px; }
+    footer { margin-top: 30px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 750px) { main { padding: 28px 22px; } .eyebrow { margin-top: 30px; } .layout { grid-template-columns: 1fr; gap: 22px; } }
+    @media print { main { max-width: none; padding: 0; } body { background: white; font-size: 12px; } .eyebrow { margin-top: 20px; } h1 { font-size: 30px; } .layout { gap: 22px; } .steps > li { padding: 14px 0; } aside { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand"><span class="mark" aria-hidden="true">Ⅱ</span> 잠깐, 집중</div>
+    <p class="eyebrow">CHROME · QUICK START</p>
+    <h1>설치는 한 번만.<br>차단은 버튼 하나로.</h1>
+    <p class="intro">차단할 사이트를 직접 정하고, 공부할 때 켜세요. 타이머 없이 사용하는 Chrome 확장 프로그램입니다. 아래 순서대로 Chrome에 불러오면 사용할 수 있어요.</p>
+
+    <div class="layout">
+      <ol class="steps">
+        <li>
+          <span class="number" aria-hidden="true">1</span>
+          <div>
+            <h2>확장 프로그램 화면 열기</h2>
+            <p>Chrome 주소창에 아래 주소를 입력하고, 오른쪽 위의 <strong>개발자 모드</strong>를 켜세요.</p>
+            <code class="address">chrome://extensions</code>
+          </div>
+        </li>
+        <li>
+          <span class="number" aria-hidden="true">2</span>
+          <div>
+            <h2>준비된 폴더 불러오기</h2>
+            <p><strong>압축해제된 확장 프로그램을 로드합니다</strong>를 누른 뒤, 아래 <strong>site-pause</strong> 폴더를 선택하세요.</p>
+            <code class="address">C:\Users\hwan\Documents\Codex\2026-09-18\sd\outputs\site-pause</code>
+            <p class="small">폴더 안에 <code>manifest.json</code> 파일이 있어야 해요. ZIP 파일을 받았다면 먼저 압축을 풀고, 그 안의 <code>site-pause</code> 폴더를 선택하세요. 설치 후에도 이 폴더를 이동하거나 삭제하지 마세요.</p>
+            <p class="small"><a href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 공식 설치 안내 ↗</a></p>
+          </div>
+        </li>
+        <li>
+          <span class="number" aria-hidden="true">3</span>
+          <div>
+            <h2>고정하고, 차단 목록 저장하기</h2>
+            <p>도구 모음의 <strong>확장 프로그램</strong> 아이콘에서 <strong>잠깐, 집중</strong>을 고정하세요. 확장 프로그램을 열고 차단 목록을 편집한 뒤 저장하세요.</p>
+            <p class="small">예: <code>youtube.com</code>, <code>reddit.com</code>. 도메인과 하위 도메인 전체를 차단해요. 특정 페이지 경로만 차단하는 방식은 아니에요.</p>
+          </div>
+        </li>
+        <li>
+          <span class="number" aria-hidden="true">4</span>
+          <div>
+            <h2>공부할 때 켜고, 쉬는 시간에 끄기</h2>
+            <p>확장 프로그램에서 차단을 켜면 아이콘에 <span class="tag">ON</span>이 표시돼요. 쉬는 시간에는 같은 화면에서 차단을 끄세요.</p>
+            <p class="small">이미 열려 있던 대상 사이트도 차단 화면으로 바뀌니, 작성 중인 내용은 먼저 저장하세요. 차단을 꺼도 사이트가 자동으로 다시 열리지는 않아요. 차단 화면의 사이트 열기 버튼을 누르거나 직접 다시 방문하세요.</p>
+          </div>
+        </li>
+      </ol>
+
+      <aside aria-label="사용 안내">
+        <h2>알아두면 좋아요</h2>
+        <ul>
+          <li><strong>사이트 액세스는 ‘모든 사이트’로</strong><br>Chrome의 확장 프로그램 세부정보에서 이 설정을 유지해야 원하는 차단 목록이 작동해요. 실제 차단 대상은 저장한 목록뿐이에요.</li>
+          <li><strong>브라우저를 다시 열어도 유지</strong><br>차단 목록과 켜짐·꺼짐 상태가 저장돼요. 필요할 때 직접 꺼주세요.</li>
+          <li><strong>현재 Chrome 프로필에서 사용</strong><br>확장 프로그램을 끄거나 제거하면 차단되지 않아요. 다른 프로필이나 다른 브라우저에는 적용되지 않아요.</li>
+          <li><strong>시크릿 창은 별도 허용</strong><br>기본적으로 시크릿 창에는 적용되지 않아요. 사용하려면 확장 프로그램 세부정보에서 ‘시크릿 모드에서 허용’을 직접 켜세요.</li>
+        </ul>
+        <p class="privacy">차단 목록과 켜짐·꺼짐 상태는 이 브라우저에만 저장돼요. 외부 서버나 분석 도구를 사용하지 않으며, 방문 기록을 수집해 저장하지 않아요.</p>
+      </aside>
+    </div>
+    <footer>이 파일은 설치 안내입니다. 확장 프로그램은 위 순서에 따라 Chrome에 직접 불러와야 해요.</footer>
+  </main>
+</body>
+</html>

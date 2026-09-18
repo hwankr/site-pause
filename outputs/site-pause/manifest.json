@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "잠깐, 집중",
+  "version": "1.0.0",
+  "description": "버튼 하나로 방해되는 사이트를 잠시 차단하세요. 차단 목록과 설정은 이 브라우저에만 저장됩니다.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "declarativeNetRequest"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {
+    "default_title": "잠깐, 집중",
+    "default_popup": "popup.html",
+    "default_icon": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"}
+  },
+  "icons": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"},
+  "options_ui": {"page": "options.html", "open_in_tab": true},
+  "web_accessible_resources": [{"resources": ["blocked.html"], "matches": ["http://*/*", "https://*/*"]}],
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"}
+}
