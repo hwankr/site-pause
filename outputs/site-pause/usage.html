@@ -16,16 +16,29 @@
     <main>
       <div class="page-intro usage-intro">
         <div><h1 class="page-title">어디에 시간을 썼나요?</h1><p class="page-description">사이트별 사용 시간을 한눈에 확인해 보세요.</p></div>
+      </div>
+      <div class="usage-toolbar">
         <div class="period-picker" role="group" aria-label="사용 시간 조회 기간">
           <button type="button" data-days="1" aria-pressed="true">오늘</button>
           <button type="button" data-days="7" aria-pressed="false">7일</button>
           <button type="button" data-days="30" aria-pressed="false">30일</button>
         </div>
+        <div class="period-picker filter-picker" role="group" aria-label="사용 시간 사이트 필터">
+          <button type="button" data-filter="all" aria-pressed="true">전체 사이트</button>
+          <button type="button" data-filter="blocked" aria-pressed="false">차단 목록 사이트</button>
+        </div>
+      </div>
+      <div class="usage-criteria">
+        <p>사이트별 하루 누적 5분을 초과한 날만, 그날의 전체 시간을 보여줘요.</p>
+        <details id="blocked-filter-help" hidden>
+          <summary>차단 목록 필터 기준</summary>
+          <p>현재 저장된 차단 목록을 기준으로, 차단을 꺼 둔 동안의 사용도 포함해요. 페이지 차단은 해당 사이트 전체 시간을 포함하며, 허용 예외도 제외하지 않아요.</p>
+        </details>
       </div>
       <section id="usage-report" aria-label="사용 시간 통계" aria-busy="true">
         <div class="usage-metrics">
           <div class="usage-metric"><h2 id="period-label">오늘의 사용 시간</h2><strong id="total-time">—</strong><p id="date-range">불러오는 중</p></div>
-          <div class="usage-metric"><h2>사용한 사이트</h2><strong id="total-sites">—</strong><p>도메인 기준</p></div>
+          <div class="usage-metric"><h2>사용한 사이트</h2><strong id="total-sites">—</strong><p id="usage-scope-label">전체 사이트 · 도메인 기준</p></div>
         </div>
         <p id="usage-loading" class="usage-loading" role="status">사용 기록을 불러오고 있어요.</p>
         <div id="usage-error" class="message" role="alert" hidden><span id="usage-error-text"></span><button id="retry-button" class="text-button" type="button">다시 시도</button><button id="reload-extension" class="text-button" type="button" hidden>확장 프로그램 새로고침</button></div>
@@ -37,7 +50,7 @@
         <section class="settings-card usage-sites-card" aria-labelledby="usage-sites-title">
           <div class="section-row"><h2 id="usage-sites-title">사이트별 사용 시간</h2><span class="count-badge">많이 사용한 순</span></div>
           <ol id="usage-sites" class="usage-sites"></ol>
-          <div id="usage-empty" class="usage-empty" hidden><span class="empty-clock" aria-hidden="true">◷</span><h3>아직 사용 기록이 없어요</h3><p id="usage-empty-copy">기록을 켜 두면 사이트를 사용하는 동안 시간이 쌓여요.</p></div>
+          <div id="usage-empty" class="usage-empty" hidden><span class="empty-clock" aria-hidden="true">◷</span><h3 id="usage-empty-title">조건에 맞는 사용 기록이 없어요</h3><p id="usage-empty-copy">하루 누적 5분을 초과한 사이트의 사용 시간이 표시돼요.</p></div>
         </section>
       </section>
       <section class="control-card recording-card" aria-labelledby="recording-title">
@@ -51,7 +64,7 @@
       </section>
       <div class="usage-footer"><p>최근 30일의 기록을 보관해요.</p><button id="clear-button" class="text-button" type="button" aria-expanded="false" aria-controls="clear-confirmation" disabled>전체 기록 삭제</button></div>
       <section id="clear-confirmation" class="clear-confirmation" aria-labelledby="clear-title" hidden>
-        <h2 id="clear-title">모든 사용 기록을 삭제할까요?</h2><p>조회 기간과 관계없이 저장된 기록이 모두 삭제돼요. 삭제한 기록은 되돌릴 수 없어요.</p>
+        <h2 id="clear-title">모든 사용 기록을 삭제할까요?</h2><p>조회 기간과 사이트 필터에 관계없이 저장된 기록이 모두 삭제돼요. 삭제한 기록은 되돌릴 수 없어요.</p>
         <div class="confirmation-actions"><button id="cancel-clear" class="secondary-button" type="button">취소</button><button id="confirm-clear" class="danger-button" type="button">전체 삭제</button></div>
       </section>
     </main>

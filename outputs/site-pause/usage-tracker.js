@@ -1,4 +1,5 @@
 import {usageHost, normalizeUsage, addUsage, summarizeUsage} from './usage-core.js';
+import {filterUsageData} from './usage-filter.js';
 
 export const USAGE_KEY = 'sitePauseUsage';
 const SESSION_KEY = 'sitePauseUsageSession';
@@ -113,10 +114,12 @@ export function createUsageTracker(api, now = () => Date.now()) {
 
   return {
     start: () => sample(),
-    request(message) {
+    request(message, rules = {}) {
       return enqueue(async () => {
         const days = message.days ?? 1;
+        const filter = message.filter ?? 'all';
         if (![1, 7, 30].includes(days)) throw new Error('조회 기간을 확인해 주세요.');
+        if (!['all', 'blocked'].includes(filter)) throw new Error('사이트 필터를 확인해 주세요.');
         if (message.type === 'SET_USAGE_ENABLED' && typeof message.enabled !== 'boolean') {
           throw new Error('사용 시간 기록 상태를 확인해 주세요.');
         }
@@ -127,7 +130,8 @@ export function createUsageTracker(api, now = () => Date.now()) {
           clear: message.type === 'CLEAR_USAGE',
           enabled: message.type === 'SET_USAGE_ENABLED' ? message.enabled : undefined
         });
-        return summarizeUsage(saved, days, now());
+        const timestamp = now();
+        return {...summarizeUsage(filterUsageData(saved, filter, rules, timestamp), days, timestamp), filter};
       });
     }
   };

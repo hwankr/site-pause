@@ -61,14 +61,21 @@ try {
       date.setDate(date.getDate() - offset);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       days[key] = offset === 0 ? {'youtube.com': 70 * 60000, 'github.com': 37 * 60000,
-        'news.example.test': 9 * 60000, 'a-very-long-site-name-for-responsive-layout.example.test': 5 * 60000} :
+        'news.example.test': 9 * 60000, 'a-very-long-site-name-for-responsive-layout.example.test': 6 * 60000,
+        'music.youtube.com': 7 * 60000, 'm.youtube.com': 8 * 60000, 'sub.news.example.test': 6 * 60000} :
         {'youtube.com': (20 + offset % 5 * 11) * 60000, 'github.com': (12 + offset % 4 * 9) * 60000};
+      // Repeating short visits across many days must still be excluded by the
+      // per-day cutoff, even when their 7/30-day cumulative total exceeds it.
+      days[key]['hidden-four-minutes.example.test'] = 4 * 60000;
+      days[key]['exact-five-minutes.example.test'] = 5 * 60000;
     }
     return {enabled: true, days, checkpoint: null};
   });
+  const fixtureRules = {sites: ['youtube.com', 'instagram.com', 'x.com'],
+    blockedPages: ['https://news.example.test/article/1'], allowedSites: ['music.youtube.com'], allowedPages: []};
+  const savedRules = await seedPage.evaluate(rules => chrome.runtime.sendMessage({type: 'SAVE_RULES', ...rules}), fixtureRules);
+  assert.equal(savedRules.ok, true);
   await seedPage.evaluate(async data => {
-    await chrome.runtime.sendMessage({type: 'SAVE_RULES', sites: ['youtube.com', 'instagram.com', 'x.com'],
-      blockedPages: [], allowedSites: ['music.youtube.com'], allowedPages: []});
     await chrome.storage.local.set({sitePauseUsage: data});
   }, fixture);
   // The background worker caches aggregates; restart the disposable browser to
@@ -82,21 +89,28 @@ try {
   assert.equal(options.url(), `${origin}/usage.html`);
   const usage = options;
   await ready(usage);
-  assert.equal(await usage.locator('#total-time').textContent(), '2시간 1분');
-  assert.equal(await usage.locator('#total-sites').textContent(), '4개');
+  assert.equal(await usage.locator('#total-time').textContent(), '2시간 23분');
+  assert.equal(await usage.locator('#total-sites').textContent(), '7개');
   assert.equal(await usage.locator('#usage-sites .usage-domain').first().textContent(), 'youtube.com');
   assert.equal(await usage.locator('#daily-section').isVisible(), false);
   assert.equal(await usage.locator('#recording-toggle').getAttribute('aria-checked'), 'true');
+  assert.equal(await usage.locator('button[data-filter="all"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await usage.locator('#usage-sites').textContent().then(text => /hidden-four-minutes|exact-five-minutes/.test(text)), false);
   passed('options usage link loads stored today totals and sites in descending order');
 
   for (const days of [7, 30, 1, 7]) {
     await usage.locator(`button[data-days="${days}"]`).click();
     await ready(usage);
-    const response = await usage.evaluate(days => chrome.runtime.sendMessage({type: 'GET_USAGE', days}), days);
+    const response = await usage.evaluate(days => chrome.runtime.sendMessage({type: 'GET_USAGE', days, filter: 'all'}), days);
     assert.equal(response.ok, true);
     const dates = Object.keys(fixture.days).sort().slice(-days);
-    const expected = dates.reduce((sum, date) => sum + Object.values(fixture.days[date]).reduce((a, b) => a + b, 0), 0);
+    const expectedDaily = dates.map(date => ({date,
+      ms: Object.values(fixture.days[date]).filter(ms => ms > 300000).reduce((a, b) => a + b, 0)}));
+    const expected = expectedDaily.reduce((sum, date) => sum + date.ms, 0);
     assert.equal(response.state.totalMs, expected);
+    assert.deepEqual(response.state.daily, expectedDaily);
+    assert.equal(response.state.sites.some(site => /hidden-four-minutes|exact-five-minutes/.test(site.host)), false);
+    assert.equal(await usage.locator('#usage-sites').textContent().then(text => /hidden-four-minutes|exact-five-minutes/.test(text)), false);
     assert.equal(await usage.locator(`button[data-days="${days}"]`).getAttribute('aria-pressed'), 'true');
     if (days > 1) {
       assert.equal(await usage.locator('.daily-column').count(), days);
@@ -110,6 +124,37 @@ try {
   await screenshot(usage, 'usage-desktop');
   passed('today, 7-day and 30-day periods show correct totals; daily bars support keyboard selection');
 
+  await usage.locator('button[data-filter="blocked"]').click();
+  await ready(usage);
+  for (const days of [7, 1, 30, 7]) {
+    await usage.locator(`button[data-days="${days}"]`).click();
+    await ready(usage);
+    const response = await usage.evaluate(days => chrome.runtime.sendMessage({type: 'GET_USAGE', days, filter: 'blocked'}), days);
+    assert.equal(response.ok, true);
+    assert.equal(response.state.filter, 'blocked');
+    const isBlocked = host => host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'news.example.test';
+    const expectedDaily = Object.keys(fixture.days).sort().slice(-days).map(date => ({date,
+      ms: Object.entries(fixture.days[date]).filter(([host, ms]) => isBlocked(host) && ms > 300000)
+        .reduce((sum, [, ms]) => sum + ms, 0)}));
+    assert.deepEqual(response.state.daily, expectedDaily);
+    assert.equal(response.state.totalMs, expectedDaily.reduce((sum, day) => sum + day.ms, 0));
+    assert.equal(response.state.sites.reduce((sum, site) => sum + site.ms, 0), response.state.totalMs);
+    assert.deepEqual(await usage.locator('#usage-sites .usage-domain').allTextContents(), response.state.sites.map(site => site.host));
+    assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await usage.locator(`button[data-days="${days}"]`).getAttribute('aria-pressed'), 'true');
+    assert.equal(await usage.locator('#total-sites').textContent(), '4개');
+    assert.equal(await usage.locator('#blocked-filter-help').isVisible(), true);
+    if (days === 1) assert.equal(await usage.locator('#total-time').textContent(), '1시간 34분');
+    for (const day of expectedDaily) {
+      const column = usage.locator(`.daily-column[data-date="${day.date}"]`);
+      const minutes = day.ms / 60000;
+      const timeLabel = minutes >= 60 ? `${Math.floor(minutes / 60)}시간${minutes % 60 ? ` ${minutes % 60}분` : ''}` : `${minutes}분`;
+      assert.ok((await column.getAttribute('aria-label')).endsWith(`, ${timeLabel}`));
+    }
+  }
+  await screenshot(usage, 'usage-blocked');
+  passed('blocked filter includes whole-site subdomains and page host totals; period, ranking and daily metrics agree');
+
   await usage.locator('#recording-toggle').focus();
   await usage.keyboard.press('Space');
   await usage.waitForFunction(() => document.getElementById('recording-toggle').getAttribute('aria-checked') === 'false' &&
@@ -117,10 +162,41 @@ try {
   assert.match(await usage.locator('#recording-status').textContent(), /일시 중지/);
   const preservedRows = await usage.locator('.usage-site').count();
   assert.equal(preservedRows, 4);
+  assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await usage.locator('button[data-days="7"]').getAttribute('aria-pressed'), 'true');
   await usage.locator('#recording-toggle').click();
   await usage.waitForFunction(() => document.getElementById('recording-toggle').getAttribute('aria-checked') === 'true' &&
     !document.getElementById('recording-toggle').disabled);
-  passed('recording pauses and resumes through keyboard and pointer without deleting earlier totals');
+  assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await usage.locator('button[data-days="7"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await usage.locator('.usage-site').count(), preservedRows);
+  passed('recording pauses and resumes through keyboard and pointer while preserving records, filter and period');
+
+  const settings = await context.newPage();
+  await settings.goto(`${origin}/options.html`);
+  await settings.waitForFunction(() => !document.getElementById('site-input').disabled);
+  const changedRules = await settings.evaluate(() => chrome.runtime.sendMessage({type: 'SAVE_RULES',
+    sites: ['github.com'], blockedPages: ['https://sub.news.example.test/article/2'], allowedSites: [], allowedPages: []}));
+  assert.equal(changedRules.ok, true);
+  assert.equal((await settings.evaluate(() => chrome.runtime.sendMessage({type: 'SET_ENABLED', enabled: false}))).ok, true);
+  await usage.bringToFront();
+  await usage.locator('button[data-days="1"]').click();
+  await ready(usage);
+  assert.deepEqual(await usage.locator('#usage-sites .usage-domain').allTextContents(), ['github.com', 'sub.news.example.test']);
+  assert.equal(await usage.locator('#total-time').textContent(), '43분');
+  assert.equal(await usage.locator('#total-sites').textContent(), '2개');
+  assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
+  const restoredRules = await settings.evaluate(rules => chrome.runtime.sendMessage({type: 'SAVE_RULES', ...rules}), fixtureRules);
+  assert.equal(restoredRules.ok, true);
+  await settings.close();
+  await usage.locator('button[data-days="7"]').click();
+  await ready(usage);
+  assert.equal(await usage.locator('#total-sites').textContent(), '4개');
+  await usage.locator('button[data-filter="all"]').click();
+  await ready(usage);
+  assert.equal(await usage.locator('#total-sites').textContent(), '7개');
+  assert.equal(await usage.locator('button[data-days="7"]').getAttribute('aria-pressed'), 'true');
+  passed('saved block-list edits immediately change filter membership, including when blocking is off; all restores every qualifying site');
 
   for (const width of [390, 320]) {
     await usage.setViewportSize({width, height: 1000});
@@ -133,7 +209,13 @@ try {
       return host.right > value.left + 1;
     }));
     assert.equal(overlaps, false, `${width}px domain and duration do not overlap`);
-    if (width === 390) await screenshot(usage, 'usage-mobile');
+    await screenshot(usage, width === 390 ? 'usage-mobile' : 'usage-mobile-320');
+    await usage.locator('button[data-filter="blocked"]').click();
+    await ready(usage);
+    assert.equal(await usage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await screenshot(usage, `usage-blocked-${width}`);
+    await usage.locator('button[data-filter="all"]').click();
+    await ready(usage);
   }
   await usage.setViewportSize({width: 1100, height: 1100});
   passed('30-day chart and long domains fit 390px and 320px screens');
@@ -142,9 +224,10 @@ try {
   await popup.setViewportSize({width: 380, height: 600});
   await popup.goto(`${origin}/popup.html`);
   await popup.waitForFunction(() => document.querySelector('.popup-usage').getAttribute('aria-busy') === 'false' &&
-    document.getElementById('site-count').textContent === '3');
-  assert.equal(await popup.locator('#usage-total').textContent(), '2시간 1분');
+    document.getElementById('site-count').textContent === '4');
+  assert.equal(await popup.locator('#usage-total').textContent(), '2시간 23분');
   assert.equal(await popup.locator('#usage-list li').count(), 3);
+  assert.deepEqual(await popup.locator('#usage-list li span:first-child').allTextContents(), ['youtube.com', 'github.com', 'news.example.test']);
   assert.equal(await popup.locator('#site-list .site-row').count(), 2);
   assert.equal(await popup.locator('#more-button').isVisible(), true);
   const popupSize = await popup.evaluate(() => ({height: document.querySelector('.popup-shell').getBoundingClientRect().height,
@@ -162,6 +245,8 @@ try {
   passed('popup displays today and top 3, opens usage details, and fits 600px with two block rows and exceptions');
 
   await usage.bringToFront();
+  await usage.locator('button[data-filter="blocked"]').click();
+  await ready(usage);
   await usage.locator('#clear-button').click();
   assert.equal(await usage.locator('#clear-confirmation').isVisible(), true);
   assert.equal(await usage.evaluate(() => document.activeElement.id), 'cancel-clear');
@@ -178,11 +263,16 @@ try {
   await usage.locator('#clear-confirmation').waitFor({state: 'hidden'});
   assert.equal(await usage.locator('#total-time').textContent(), '0분');
   assert.equal(await usage.locator('#usage-empty').isVisible(), true);
+  assert.equal(await usage.locator('#usage-empty-title').textContent(), '차단 목록에 해당하는 사용 기록이 없어요');
+  assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await usage.locator('button[data-days="1"]').getAttribute('aria-pressed'), 'true');
   const cleared = await usage.evaluate(() => chrome.runtime.sendMessage({type: 'GET_USAGE', days: 30}));
   assert.equal(cleared.state.totalMs, 0, 'all periods are cleared even when viewing today');
+  const rawCleared = await usage.evaluate(() => chrome.storage.local.get('sitePauseUsage'));
+  assert.deepEqual(rawCleared.sitePauseUsage.days, {}, 'clear deletes unfiltered and below-threshold raw records too');
   assert.equal(await usage.evaluate(() => document.activeElement.id), 'clear-button');
   await screenshot(usage, 'usage-empty');
-  passed('clear requires in-page confirmation; Escape/cancel preserve records and confirm clears all 30 days');
+  passed('clear confirms in-page and preserves the selected filter; all raw records and periods clear, including hidden short visits');
 
   const errorPage = await context.newPage();
   await errorPage.addInitScript(() => {
@@ -222,8 +312,11 @@ try {
     const measured = await usage.evaluate(() => chrome.runtime.sendMessage({type: 'GET_USAGE', days: 1}));
     assert.equal(measured.ok, true);
     const recorded = measured.state.sites.find(site => site.host === 'timer-fixture.example.test');
-    assert.ok(recorded?.ms > 0 && recorded.ms < 15000, `real active-tab interval recorded: ${JSON.stringify(recorded)}`);
+    assert.equal(recorded, undefined, 'a real visit below five minutes must stay out of reports');
+    assert.equal(measured.state.totalMs, 0);
     const saved = await usage.evaluate(() => chrome.storage.local.get('sitePauseUsage'));
+    const pending = Object.values(saved.sitePauseUsage.days).reduce((sum, sites) => sum + (sites['timer-fixture.example.test'] || 0), 0);
+    assert.ok(pending > 0 && pending < 15000, `real active-tab interval is pending locally: ${pending}ms`);
     assert.equal(JSON.stringify(saved).includes('private'), false);
     assert.equal(JSON.stringify(saved).includes('secret'), false);
   } finally {
@@ -234,7 +327,7 @@ try {
     await active.close();
   }
   assert.deepEqual(errors, []);
-  passed('real active HTTP tab/clock/storage accrue domain time with simulated OS active state; no path/query or runtime errors');
+  passed('real short visits accrue pending local domain time but stay hidden; no path/query or runtime errors');
   console.log(`Usage browser integration: ${checks} checks passed.`);
 } finally {
   await context?.close();

@@ -73,6 +73,15 @@ function fixture({at = START, backing = {local: {}, session: {}}, environment} =
       // APIs resolve in microtasks, which finish before the next event-loop turn.
       await new Promise(resolve => setImmediate(resolve));
     },
+    async record(ms) {
+      while (ms > 0) {
+        const interval = Math.min(ms, 30_000);
+        timestamp += interval;
+        ms -= interval;
+        for (const listener of listeners.alarm ?? []) listener({name: USAGE_ALARM});
+        await new Promise(resolve => setImmediate(resolve));
+      }
+    },
     summary(days = 1) { return tracker.request({type: 'GET_USAGE', days}); }
   };
 }
@@ -135,7 +144,8 @@ test('focus loss and return omit time spent in another app', async () => {
   f.state.windows.get(1).focused = true;
   await f.emit('focus', 1);
   f.advance(8_000);
-  assert.equal((await f.summary()).totalMs, 20_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 20_000);
 });
 
 test('idle and locked events pause recording until activity resumes', async () => {
@@ -154,7 +164,8 @@ test('idle and locked events pause recording until activity resumes', async () =
   f.state.idle = 'active';
   await f.emit('idle', 'active');
   f.advance(10_000);
-  assert.equal((await f.summary()).totalMs, 30_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 30_000);
 });
 
 test('incognito windows, incognito tabs, internal pages and minimized windows are excluded', async () => {
@@ -195,8 +206,10 @@ test('switching browser windows counts only the newly focused window', async () 
   await f.emit('focus', 2);
   f.advance(15_000);
   const result = await f.summary();
-  assert.deepEqual(result.sites, [{host: 'second.example', ms: 15_000}, {host: 'example.com', ms: 10_000}]);
-  assert.equal(result.totalMs, 25_000);
+  assert.equal(total(f.saved(), 'second.example'), 15_000);
+  assert.equal(total(f.saved(), 'example.com'), 10_000);
+  assert.deepEqual(result.sites, []);
+  assert.equal(result.totalMs, 0);
 });
 
 test('a restarted worker in the same browser session resumes an atomic checkpoint once', async () => {
@@ -211,7 +224,8 @@ test('a restarted worker in the same browser session resumes an atomic checkpoin
   await second.tracker.start();
   assert.equal(total(second.saved()), 30_000);
   second.advance(10_000);
-  assert.equal((await second.summary()).totalMs, 40_000);
+  await second.summary();
+  assert.equal(total(second.saved()), 40_000);
 });
 
 test('a new browser session discards the closed-browser gap even when it is short', async () => {
@@ -226,7 +240,8 @@ test('a new browser session discards the closed-browser gap even when it is shor
   assert.equal(total(second.saved()), 10_000);
   assert.notEqual(second.saved().checkpoint.sessionId, previousSession);
   second.advance(5_000);
-  assert.equal((await second.summary()).totalMs, 15_000);
+  await second.summary();
+  assert.equal(total(second.saved()), 15_000);
 });
 
 test('a delayed alarm discards the whole sleep gap and resumes from the wake sample', async () => {
@@ -238,38 +253,115 @@ test('a delayed alarm discards the whole sleep gap and resumes from the wake sam
   await f.emit('alarm', {name: USAGE_ALARM});
   assert.equal(total(f.saved()), 15_000);
   f.advance(20_000);
-  assert.equal((await f.summary()).totalMs, 35_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 35_000);
 });
 
-test('recording pause and resume preserve existing totals and omit paused time', async () => {
+test('exactly five daily minutes stay hidden and crossing the cutoff includes the whole day', async () => {
   const f = fixture();
   await f.tracker.start();
-  f.advance(10_000);
+  await f.record(300_000);
+  const atCutoff = await f.summary();
+  assert.equal(atCutoff.minimumDailyMs, 300_000);
+  assert.equal(atCutoff.totalMs, 0);
+  assert.deepEqual(atCutoff.sites, []);
+  assert.equal(total(f.saved()), 300_000, 'short usage must remain available for later accumulation');
+  f.advance(1);
+  assert.equal((await f.summary()).totalMs, 300_001);
+  await f.record(59_999);
+  assert.deepEqual((await f.summary()).sites, [{host: 'example.com', ms: 360_000}]);
+});
+
+test('separate short visits qualify together without counting time on other sites', async () => {
+  const f = fixture();
+  await f.tracker.start();
+  await f.record(180_000);
+  f.state.tabs.get(1).url = 'https://second.example/';
+  await f.emit('updated', 1, {url: f.state.tabs.get(1).url});
+  await f.record(60_000);
+  assert.equal((await f.summary()).totalMs, 0);
+  f.state.tabs.get(1).url = 'https://example.com/another-page';
+  await f.emit('updated', 1, {url: f.state.tabs.get(1).url});
+  await f.record(180_000);
+  const result = await f.summary();
+  assert.equal(result.totalMs, 360_000);
+  assert.deepEqual(result.sites, [{host: 'example.com', ms: 360_000}]);
+  assert.equal(total(f.saved(), 'second.example'), 60_000);
+});
+
+test('the daily cutoff resets at midnight even when a seven-day view includes both days', async () => {
+  const midnight = new Date(2026, 8, 20).getTime();
+  const f = fixture({at: midnight - 360_000});
+  await f.tracker.start();
+  await f.record(360_000);
+  await f.record(240_000);
+  assert.equal((await f.summary()).totalMs, 0);
+  const week = await f.summary(7);
+  assert.equal(week.totalMs, 360_000);
+  assert.equal(week.daily.at(-2).ms, 360_000);
+  assert.equal(week.daily.at(-1).ms, 0);
+  assert.equal(f.saved().days['2026-09-20']['example.com'], 240_000);
+  await f.record(120_000);
+  assert.equal((await f.summary()).totalMs, 360_000);
+  assert.equal((await f.summary(7)).totalMs, 720_000);
+});
+
+test('blocked usage requests use the supplied current list while preserving all local usage', async () => {
+  const f = fixture();
+  await f.tracker.start();
+  await f.record(360_000);
+  f.state.tabs.get(1).url = 'https://second.example/';
+  await f.emit('updated', 1, {url: f.state.tabs.get(1).url});
+  await f.record(420_000);
+  const saved = f.saved();
+  const request = {type: 'GET_USAGE', days: 7, filter: 'blocked'};
+  const first = await f.tracker.request(request, {
+    enabled: false, sites: ['example.com'], allowedSites: ['example.com']
+  });
+  assert.equal(first.filter, 'blocked');
+  assert.equal(first.totalMs, 360_000);
+  assert.deepEqual(first.sites, [{host: 'example.com', ms: 360_000}]);
+  assert.equal(first.daily.at(-1).ms, first.totalMs);
+  const updated = await f.tracker.request(request, {sites: ['second.example']});
+  assert.equal(updated.totalMs, 420_000);
+  assert.deepEqual(updated.sites, [{host: 'second.example', ms: 420_000}]);
+  assert.equal((await f.tracker.request(request)).totalMs, 0);
+  assert.equal((await f.summary(7)).totalMs, 780_000);
+  assert.deepEqual(f.saved(), saved);
+});
+
+test('recording pause and resume preserve short sessions until their daily total qualifies', async () => {
+  const f = fixture();
+  await f.tracker.start();
+  await f.record(180_000);
   const paused = await f.tracker.request({type: 'SET_USAGE_ENABLED', enabled: false});
   assert.equal(paused.enabled, false);
-  assert.equal(paused.totalMs, 10_000);
+  assert.equal(paused.totalMs, 0);
+  assert.equal(total(f.saved()), 180_000);
   assert.equal(f.saved().checkpoint, null);
   f.advance(20_000);
   await f.emit('alarm', {name: USAGE_ALARM});
   await f.tracker.request({type: 'SET_USAGE_ENABLED', enabled: true});
-  f.advance(5_000);
-  assert.equal((await f.summary()).totalMs, 15_000);
+  await f.record(180_000);
+  assert.equal((await f.summary()).totalMs, 360_000);
+  assert.equal(total(f.saved()), 360_000);
 });
 
 test('clearing usage removes old checkpoints so worker restart cannot resurrect records', async () => {
   const first = fixture();
   await first.tracker.start();
-  first.advance(20_000);
-  await first.emit('alarm', {name: USAGE_ALARM});
-  first.advance(10_000);
+  await first.record(180_000);
   const cleared = await first.tracker.request({type: 'CLEAR_USAGE'});
   assert.equal(cleared.totalMs, 0);
   assert.deepEqual(first.saved().days, {});
   const second = fixture({at: first.now(), backing: first.backing, environment: first.state});
   await second.tracker.start();
   assert.equal(total(second.saved()), 0);
-  second.advance(5_000);
-  assert.equal((await second.summary()).totalMs, 5_000);
+  await second.record(180_000);
+  assert.equal((await second.summary()).totalMs, 0);
+  assert.equal(total(second.saved()), 180_000);
+  await second.record(180_000);
+  assert.equal((await second.summary()).totalMs, 360_000);
 });
 
 test('an active interval crossing local midnight is split between calendar days', async () => {
@@ -280,8 +372,8 @@ test('an active interval crossing local midnight is split between calendar days'
   await f.emit('alarm', {name: USAGE_ALARM});
   assert.equal(f.saved().days['2026-09-19']['example.com'], 10_000);
   assert.equal(f.saved().days['2026-09-20']['example.com'], 20_000);
-  assert.equal((await f.summary()).totalMs, 20_000);
-  assert.equal((await f.summary(7)).totalMs, 30_000);
+  assert.equal((await f.summary()).totalMs, 0);
+  assert.equal((await f.summary(7)).totalMs, 0);
 });
 
 test('invalid request payloads do not change recording preferences or erase history', async t => {
@@ -294,6 +386,8 @@ test('invalid request payloads do not change recording preferences or erase hist
   for (const message of [
     {type: 'GET_USAGE', days: 2},
     {type: 'GET_USAGE', days: '7'},
+    {type: 'GET_USAGE', filter: 'unknown'},
+    {type: 'GET_USAGE', filter: false},
     {type: 'CLEAR_USAGE', days: -1},
     {type: 'SET_USAGE_ENABLED', enabled: 'false'},
     {type: 'UNKNOWN'}, null, undefined
@@ -301,7 +395,8 @@ test('invalid request payloads do not change recording preferences or erase hist
     await assert.rejects(f.tracker.request(message));
     assert.deepEqual(f.saved(), before);
   }
-  assert.equal((await f.summary()).totalMs, 10_000, 'queue remains usable after rejected requests');
+  await f.summary();
+  assert.equal(total(f.saved()), 10_000, 'queue remains usable after rejected requests');
 });
 
 test('failed persistence can retry without committing or double counting the failed sample', async t => {
@@ -313,9 +408,11 @@ test('failed persistence can retry without committing or double counting the fai
   f.failStorageWrite();
   await assert.rejects(f.summary(), /Storage unavailable/);
   assert.deepEqual(f.saved(), before);
-  assert.equal((await f.summary()).totalMs, 20_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 20_000);
   f.advance(10_000);
-  assert.equal((await f.summary()).totalMs, 30_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 30_000);
 });
 
 test('retrying a failed focus-loss write does not count the intervening time in another app', async t => {
@@ -345,7 +442,8 @@ test('a failed clear preserves observed usage in storage and memory until an exp
   assert.equal(total(f.saved()), 25_000);
   assert.equal(f.saved().enabled, true);
   f.advance(5_000);
-  assert.equal((await f.summary()).totalMs, 30_000, 'subsequent reads must not silently apply the failed deletion');
+  await f.summary();
+  assert.equal(total(f.saved()), 30_000, 'subsequent reads must not silently apply the failed deletion');
   assert.equal((await f.tracker.request({type: 'CLEAR_USAGE'})).totalMs, 0);
   assert.deepEqual(f.saved().days, {});
 });
@@ -363,11 +461,12 @@ test('a failed pause retains enabled recording after its preceding observation i
   f.advance(5_000);
   const stillRecording = await f.summary();
   assert.equal(stillRecording.enabled, true);
-  assert.equal(stillRecording.totalMs, 15_000);
+  assert.equal(total(f.saved()), 15_000);
   const paused = await f.tracker.request({type: 'SET_USAGE_ENABLED', enabled: false});
   assert.equal(paused.enabled, false);
   f.advance(10_000);
-  assert.equal((await f.summary()).totalMs, 15_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 15_000);
 });
 
 test('a failed resume retains disabled recording and does not collect the failed-resume interval', async t => {
@@ -385,8 +484,9 @@ test('a failed resume retains disabled recording and does not collect the failed
   f.advance(10_000);
   const stillPaused = await f.summary();
   assert.equal(stillPaused.enabled, false);
-  assert.equal(stillPaused.totalMs, 10_000);
+  assert.equal(total(f.saved()), 10_000);
   await f.tracker.request({type: 'SET_USAGE_ENABLED', enabled: true});
   f.advance(5_000);
-  assert.equal((await f.summary()).totalMs, 15_000);
+  await f.summary();
+  assert.equal(total(f.saved()), 15_000);
 });

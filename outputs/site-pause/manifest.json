@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "잠깐, 집중",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "사이트와 특정 페이지를 차단하고, 사이트별 사용 시간을 확인하세요.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "declarativeNetRequest", "webNavigation", "idle", "alarms"],

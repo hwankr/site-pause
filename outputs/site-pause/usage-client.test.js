@@ -14,6 +14,7 @@ function connection(reply) {
 test('old worker is probed without sending unsupported usage requests', async () => {
   for (const oldResponse of [
     {ok: true, state: {enabled: false, sites: []}},
+    {ok: true, state: {}, capabilities: {usage: true}},
     // The previous worker only authorizes popup/options, not the new usage page.
     {ok: false, error: '확장 프로그램 화면에서 사용해 주세요.'}
   ]) {
@@ -28,14 +29,14 @@ test('old worker is probed without sending unsupported usage requests', async ()
 test('updated worker receives the requested period or mutation after its capability check', async () => {
   const result = {enabled: true, days: 7, totalMs: 4000};
   const messages = connection(message => message.type === 'GET_STATE'
-    ? {ok: true, state: {}, capabilities: {usage: true}}
+    ? {ok: true, state: {}, capabilities: {usage: true, usageFilters: true}}
     : {ok: true, state: result});
-  assert.deepEqual(await requestUsage('SET_USAGE_ENABLED', {enabled: true, days: 7}), result);
-  assert.deepEqual(messages, [{type: 'GET_STATE'}, {type: 'SET_USAGE_ENABLED', enabled: true, days: 7}]);
+  assert.deepEqual(await requestUsage('SET_USAGE_ENABLED', {enabled: true, days: 7, filter: 'blocked'}), result);
+  assert.deepEqual(messages, [{type: 'GET_STATE'}, {type: 'SET_USAGE_ENABLED', enabled: true, days: 7, filter: 'blocked'}]);
 });
 
 test('modern worker failures remain useful errors and do not send a follow-up mutation', async () => {
-  const messages = connection(() => ({ok: false, error: 'storage unavailable', capabilities: {usage: true}}));
+  const messages = connection(() => ({ok: false, error: 'storage unavailable', capabilities: {usage: true, usageFilters: true}}));
   await assert.rejects(requestUsage('CLEAR_USAGE'), error => error.message === 'storage unavailable' && !error.code);
   assert.deepEqual(messages, [{type: 'GET_STATE'}]);
   connection(() => { throw new Error('Connection closed'); });
@@ -45,7 +46,7 @@ test('modern worker failures remain useful errors and do not send a follow-up mu
 test('a manual retry discovers the updated worker without a stale capability cache', async () => {
   let updated = false;
   connection(message => message.type === 'GET_STATE'
-    ? {ok: true, state: {}, ...(updated ? {capabilities: {usage: true}} : {})}
+    ? {ok: true, state: {}, ...(updated ? {capabilities: {usage: true, usageFilters: true}} : {})}
     : {ok: true, state: {totalMs: 0}});
   await assert.rejects(requestUsage('GET_USAGE'), {code: 'UPDATE_REQUIRED'});
   updated = true;

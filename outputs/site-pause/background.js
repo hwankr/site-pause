@@ -5,7 +5,7 @@ const usage = createUsageTracker(chrome);
 usage.start();
 
 const KEY = 'sitePause';
-const CAPABILITIES = {usage: true};
+const CAPABILITIES = {usage: true, usageFilters: true};
 const ORIGIN = chrome.runtime.getURL('');
 let state;
 let queue = Promise.resolve();
@@ -97,7 +97,10 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       respond({ok: false, error: '확장 프로그램 화면에서 사용해 주세요.'});
       return false;
     }
-    usage.request(message).then(value => respond({ok: true, state: value}),
+    enqueue(async () => {
+      await ensureLoaded();
+      return usage.request(message, state);
+    }).then(value => respond({ok: true, state: value}),
       error => respond({ok: false, error: error.message || '사용 시간을 불러오지 못했어요.'}));
     return true;
   }

@@ -1,4 +1,5 @@
 export const RETENTION_DAYS = 30;
+export const MINIMUM_DAILY_MS = 5 * 60 * 1000;
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const isRecord = value => value !== null && typeof value === 'object' &&
   [Object.prototype, null].includes(Object.getPrototypeOf(value));
@@ -115,6 +116,9 @@ export function summarizeUsage(data, days = 1, now = Date.now()) {
   const daily = dates.map(date => {
     let ms = 0;
     for (const [host, duration] of Object.entries(normalized.days[date] ?? {})) {
+      // Qualify each local day separately. Keep raw local sums so several short
+      // visits can pass the threshold later; then include the entire day's use.
+      if (duration <= MINIMUM_DAILY_MS) continue;
       increment(totals, host, duration);
       ms += duration;
     }
@@ -129,6 +133,7 @@ export function summarizeUsage(data, days = 1, now = Date.now()) {
     daily,
     startDate: dates[0] ?? null,
     endDate: dates.at(-1) ?? null,
-    retentionDays: RETENTION_DAYS
+    retentionDays: RETENTION_DAYS,
+    minimumDailyMs: MINIMUM_DAILY_MS
   };
 }

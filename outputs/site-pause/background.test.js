@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 let fixtureId = 0;
 
-async function startBackground(saved, initialTabs = []) {
+async function startBackground(saved, initialTabs = [], initialUsage) {
   const listeners = {};
   const event = (name) => ({addListener(listener) {
     const previous = listeners[name];
@@ -12,6 +12,7 @@ async function startBackground(saved, initialTabs = []) {
   const tabs = new Map(initialTabs.map(tab => [tab.id, {...tab}]));
   const updates = [];
   let stored = structuredClone(saved);
+  let storedUsage = structuredClone(initialUsage);
   let rules = [];
   let failNextStorageWrite = false;
   let regexSupported = true;
@@ -21,10 +22,11 @@ async function startBackground(saved, initialTabs = []) {
       onMessage: event('message'), onInstalled: event('installed'), onStartup: event('startup')
     },
     storage: {session: {async get() { return {}; }, async set() {}}, local: {
-      async get() { return {sitePause: structuredClone(stored)}; },
+      async get() { return {sitePause: structuredClone(stored), sitePauseUsage: structuredClone(storedUsage)}; },
       async set(value) {
         if (failNextStorageWrite) { failNextStorageWrite = false; throw new Error('storage unavailable'); }
         if (value.sitePause) stored = structuredClone(value.sitePause);
+        if (value.sitePauseUsage) storedUsage = structuredClone(value.sitePauseUsage);
       }
     }},
     declarativeNetRequest: {
@@ -175,6 +177,7 @@ test('usage controls are independent of blocking and only available to internal 
     const state = await fixture.request({type: 'GET_STATE'}, page);
     assert.equal(state.ok, true);
     assert.equal(state.capabilities.usage, true);
+    assert.equal(state.capabilities.usageFilters, true);
     const result = await fixture.request({type: 'GET_USAGE', days: 7}, page);
     assert.equal(result.ok, true);
     assert.equal(result.state.daily.length, 7);
@@ -191,7 +194,32 @@ test('usage controls are independent of blocking and only available to internal 
   assert.deepEqual((await fixture.request({type: 'GET_STATE'})).state, fixture.initial);
   assert.ok(fixture.rules().length > 0, 'pausing recording must leave blocking on');
   assert.equal((await fixture.request({type: 'GET_USAGE', days: 365})).ok, false);
+  assert.equal((await fixture.request({type: 'GET_USAGE', filter: 'unknown'})).ok, false);
   assert.equal((await fixture.request({type: 'SET_USAGE_ENABLED', enabled: 'false'})).ok, false);
   assert.equal((await fixture.request({type: 'SET_ENABLED', enabled: false}, 'usage.html')).ok, false,
     'usage page can discover features without gaining permission to change blocking');
+});
+
+test('usage filters use the latest saved rules and filter every summary total consistently', async () => {
+  const date = new Date();
+  const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const fixture = await startBackground({enabled: false, sites: ['youtube.com'],
+    blockedPages: ['https://example.test/feed'], allowedSites: ['music.youtube.com']}, [], {
+    enabled: false, days: {[today]: {'youtube.com': 360000, 'music.youtube.com': 420000,
+      'example.test': 480000, 'work.test': 600000, 'short.test': 300000}}
+  });
+  const blocked = (await fixture.request({type: 'GET_USAGE', filter: 'blocked'})).state;
+  assert.equal(blocked.filter, 'blocked');
+  assert.equal(blocked.minimumDailyMs, 300000);
+  assert.deepEqual(blocked.sites.map(site => site.host), ['example.test', 'music.youtube.com', 'youtube.com']);
+  assert.equal(blocked.totalMs, 1260000);
+  assert.equal(blocked.daily[0].ms, blocked.totalMs);
+  const all = (await fixture.request({type: 'GET_USAGE'})).state;
+  assert.equal(all.totalMs, 1860000);
+  await fixture.request({type: 'SAVE_RULES', sites: ['work.test'], blockedPages: [], allowedSites: [], allowedPages: []});
+  const changed = (await fixture.request({type: 'GET_USAGE', filter: 'blocked'})).state;
+  assert.deepEqual(changed.sites, [{host: 'work.test', ms: 600000}]);
+  const cleared = await fixture.request({type: 'CLEAR_USAGE', filter: 'blocked'});
+  assert.equal(cleared.state.filter, 'blocked');
+  assert.equal((await fixture.request({type: 'GET_USAGE'})).state.totalMs, 0, 'clear deletes all usage, including hidden sites');
 });

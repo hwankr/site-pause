@@ -179,6 +179,7 @@ body[data-enabled="true"] .status-pill { background: var(--blue-light); color: #
 .popup-page .more-button { padding: 6px; margin-top: 3px; }
 .popup-usage { margin-top: 12px; padding: 0 1px 10px; border-bottom: 1px solid var(--line); }
 .popup-usage h2 { font-size: 12px; font-weight: 600; }
+.popup-usage-note { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
 .popup-usage-total { display: flex; align-items: baseline; gap: 9px; margin: 1px 0 6px; }
 .popup-usage-total strong { font-size: 22px; line-height: 1.5; font-weight: 650; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
 .popup-usage-total > span { color: var(--muted); font-size: 10px; }
@@ -191,6 +192,11 @@ body[data-enabled="true"] .status-pill { background: var(--blue-light); color: #
 .usage-shell { width: min(840px,100%); }
 .usage-intro { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 26px; }
 .page-description { margin-top: 7px; color: var(--muted); font-size: 13px; word-break: keep-all; }
+.usage-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.usage-criteria { margin: 12px 2px 20px; color: var(--muted); font-size: 11px; line-height: 1.8; word-break: keep-all; }
+.usage-criteria details { margin-top: 5px; }
+.usage-criteria summary { width: fit-content; cursor: pointer; color: var(--secondary); }
+.usage-criteria details p { max-width: 580px; margin-top: 5px; }
 .period-picker { display: inline-flex; padding: 4px; gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: #edf0f5; }
 .period-picker button { min-width: 52px; min-height: 35px; padding: 6px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
 .period-picker button[aria-pressed="true"] { background: white; color: var(--text); box-shadow: 0 1px 4px #1523430a; }
