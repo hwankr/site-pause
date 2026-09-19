@@ -1,6 +1,11 @@
 import {normalizeSites, normalizeRuleLists, hasBlockingRules, getBlockedRule, buildRules} from './core.js';
+import {createUsageTracker} from './usage-tracker.js';
+
+const usage = createUsageTracker(chrome);
+usage.start();
 
 const KEY = 'sitePause';
+const CAPABILITIES = {usage: true};
 const ORIGIN = chrome.runtime.getURL('');
 let state;
 let queue = Promise.resolve();
@@ -87,7 +92,16 @@ function isInternalPage(sender, names) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  const readAllowed = isInternalPage(sender, ['/popup.html', '/options.html', '/blocked.html']);
+  if (['GET_USAGE', 'SET_USAGE_ENABLED', 'CLEAR_USAGE'].includes(message?.type)) {
+    if (!isInternalPage(sender, ['/popup.html', '/options.html', '/usage.html'])) {
+      respond({ok: false, error: '확장 프로그램 화면에서 사용해 주세요.'});
+      return false;
+    }
+    usage.request(message).then(value => respond({ok: true, state: value}),
+      error => respond({ok: false, error: error.message || '사용 시간을 불러오지 못했어요.'}));
+    return true;
+  }
+  const readAllowed = isInternalPage(sender, ['/popup.html', '/options.html', '/blocked.html', '/usage.html']);
   const writeAllowed = isInternalPage(sender, ['/popup.html', '/options.html']);
   if (!readAllowed) { respond({ok: false, error: '확장 프로그램 화면에서 사용해 주세요.'}); return false; }
   enqueue(async () => {
@@ -109,7 +123,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       return commit({enabled: state.enabled && hasBlockingRules(lists), ...lists});
     }
     throw new Error('지원하지 않는 요청이에요.');
-  }).then(value => respond({ok: true, state: value}), error => respond({ok: false, error: error.message || '설정을 적용하지 못했어요. 다시 시도해 주세요.'}));
+  }).then(value => respond({ok: true, state: value, capabilities: CAPABILITIES}),
+    error => respond({ok: false, error: error.message || '설정을 적용하지 못했어요. 다시 시도해 주세요.', capabilities: CAPABILITIES}));
   return true;
 });
 

@@ -5,7 +5,10 @@ let fixtureId = 0;
 
 async function startBackground(saved, initialTabs = []) {
   const listeners = {};
-  const event = (name) => ({addListener(listener) { listeners[name] = listener; }});
+  const event = (name) => ({addListener(listener) {
+    const previous = listeners[name];
+    listeners[name] = (...args) => { previous?.(...args); return listener(...args); };
+  }});
   const tabs = new Map(initialTabs.map(tab => [tab.id, {...tab}]));
   const updates = [];
   let stored = structuredClone(saved);
@@ -17,11 +20,11 @@ async function startBackground(saved, initialTabs = []) {
       id: 'test-extension', getURL: path => `chrome-extension://test-extension/${path}`,
       onMessage: event('message'), onInstalled: event('installed'), onStartup: event('startup')
     },
-    storage: {local: {
+    storage: {session: {async get() { return {}; }, async set() {}}, local: {
       async get() { return {sitePause: structuredClone(stored)}; },
       async set(value) {
         if (failNextStorageWrite) { failNextStorageWrite = false; throw new Error('storage unavailable'); }
-        stored = structuredClone(value.sitePause);
+        if (value.sitePause) stored = structuredClone(value.sitePause);
       }
     }},
     declarativeNetRequest: {
@@ -34,11 +37,18 @@ async function startBackground(saved, initialTabs = []) {
     },
     tabs: {
       onUpdated: event('updated'), onActivated: event('activated'),
+      onRemoved: event('removed'), onReplaced: event('replaced'),
       async query() { return [...tabs.values()]; },
       async get(id) { return tabs.get(id); },
       async update(id, value) { updates.push({id, ...value}); Object.assign(tabs.get(id), value); }
     },
-    webNavigation: {onHistoryStateUpdated: event('history')}
+    webNavigation: {onHistoryStateUpdated: event('history')},
+    windows: {
+      WINDOW_ID_NONE: -1, onFocusChanged: event('focus'), onRemoved: event('windowRemoved'),
+      async getLastFocused() { return {focused: false}; }
+    },
+    idle: {setDetectionInterval() {}, async queryState() { return 'active'; }, onStateChanged: event('idle')},
+    alarms: {async get() { return {}; }, async create() {}, onAlarm: event('alarm')}
   };
   const request = (message, page = 'options.html') => new Promise(resolve => {
     listeners.message(message, {id: 'test-extension', url: `chrome-extension://test-extension/${page}`}, resolve);
@@ -156,4 +166,32 @@ test('unsupported Chrome page regex is rejected before saving even while blockin
   assert.deepEqual(fixture.stored(), fixture.initial);
   assert.deepEqual(fixture.rules(), []);
   assert.deepEqual((await fixture.request({type: 'GET_STATE'})).state, fixture.initial);
+});
+
+test('usage controls are independent of blocking and only available to internal management pages', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const fixture = await startBackground({enabled: true, sites: ['youtube.com']});
+  for (const page of ['popup.html', 'options.html', 'usage.html']) {
+    const state = await fixture.request({type: 'GET_STATE'}, page);
+    assert.equal(state.ok, true);
+    assert.equal(state.capabilities.usage, true);
+    const result = await fixture.request({type: 'GET_USAGE', days: 7}, page);
+    assert.equal(result.ok, true);
+    assert.equal(result.state.daily.length, 7);
+  }
+  for (const type of ['GET_USAGE', 'SET_USAGE_ENABLED', 'CLEAR_USAGE']) {
+    assert.equal((await fixture.request({type, enabled: false}, 'blocked.html')).ok, false);
+    const external = await new Promise(resolve => fixture.listeners.message({type},
+      {id: 'test-extension', url: 'https://example.com/'}, resolve));
+    assert.equal(external.ok, false);
+  }
+  const paused = await fixture.request({type: 'SET_USAGE_ENABLED', enabled: false}, 'usage.html');
+  assert.equal(paused.ok, true);
+  assert.equal(paused.state.enabled, false);
+  assert.deepEqual((await fixture.request({type: 'GET_STATE'})).state, fixture.initial);
+  assert.ok(fixture.rules().length > 0, 'pausing recording must leave blocking on');
+  assert.equal((await fixture.request({type: 'GET_USAGE', days: 365})).ok, false);
+  assert.equal((await fixture.request({type: 'SET_USAGE_ENABLED', enabled: 'false'})).ok, false);
+  assert.equal((await fixture.request({type: 'SET_ENABLED', enabled: false}, 'usage.html')).ok, false,
+    'usage page can discover features without gaining permission to change blocking');
 });

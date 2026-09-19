@@ -71,20 +71,33 @@
           <p class="sequence">사이트 목록 저장 <span class="arrow" aria-hidden="true">→</span> 차단 켜기</p>
         </div>
       </li>
+      <li>
+        <span class="number" aria-hidden="true">4</span>
+        <div>
+          <h2>사이트별 사용 시간 확인</h2>
+          <p class="sequence">팝업에서 오늘의 총 사용 시간과 많이 사용한 사이트를 확인하세요.</p>
+          <p class="sequence">사용 시간 상세 화면 <span class="arrow" aria-hidden="true">→</span> 오늘·최근 7일·최근 30일 순위 확인</p>
+          <p class="folder-note">설치·업데이트 이후부터 기본으로 기록합니다. 상세 화면에서 기록을 일시정지하거나 삭제할 수 있습니다.</p>
+        </div>
+      </li>
     </ol>
     <details>
       <summary>사용 정보</summary>
       <div class="info">
         <dl>
-          <div><dt>업데이트</dt><dd>같은 폴더에 파일 교체 → <code>chrome://extensions</code> → 잠깐, 집중의 새로고침</dd></div>
+          <div><dt>업데이트</dt><dd>같은 폴더에 파일 교체 → <code>chrome://extensions</code> → 잠깐, 집중의 새로고침. 기존 차단 목록과 설정 유지. 이전 방문 기록은 가져오지 않음.</dd></div>
           <div><dt>설치 폴더</dt><dd>설치 후 폴더 위치 유지. 폴더 이동·삭제 시 재설치 필요.</dd></div>
           <div><dt>사이트 액세스</dt><dd>확장 프로그램 세부정보 → 모든 사이트. 실제 차단은 저장한 목록에만 적용.</dd></div>
           <div><dt>차단 범위</dt><dd>사이트 전체 또는 특정 페이지를 선택해 차단. 사이트·페이지 허용 예외가 차단보다 우선 적용.</dd></div>
           <div><dt>열려 있는 탭</dt><dd>차단 시 대상 탭도 전환. 작성 중인 내용은 미리 저장. 해제 후 ‘사이트 열기’로 복귀.</dd></div>
           <div><dt>설정 저장</dt><dd>차단 목록과 켜짐·꺼짐 상태는 현재 Chrome 프로필에 저장. 브라우저 재실행 후에도 유지.</dd></div>
           <div><dt>다른 환경</dt><dd>다른 프로필·브라우저에는 미적용. 확장 프로그램 비활성화·삭제 시 차단 해제.</dd></div>
-          <div><dt>시크릿 창</dt><dd>기본 미적용. 확장 프로그램 세부정보 → 시크릿 모드에서 허용.</dd></div>
-          <div><dt>개인정보</dt><dd>외부 서버·분석 도구 미사용. 방문 기록 수집·저장 없음.</dd></div>
+          <div><dt>시크릿 창</dt><dd>차단은 기본 미적용. 확장 프로그램 세부정보 → 시크릿 모드에서 허용. 허용해도 시크릿 창의 사용 시간은 기록하지 않음.</dd></div>
+          <div><dt>사용 시간</dt><dd>차단 상태와 별개로, 현재 포커스된 Chrome 창에서 보고 있는 HTTP·HTTPS 탭만 기록. 백그라운드 탭·다른 앱 사용 시간 제외. 시스템에서 60초 동안 입력이 없거나 화면이 잠기면 기록 중지.</dd></div>
+          <div><dt>기록 정확도</dt><dd>약 30초마다 확인하는 근사값. 확인이 오래 지연되거나 컴퓨터가 절전 상태였던 구간은 제외.</dd></div>
+          <div><dt>보관과 삭제</dt><dd>컴퓨터의 현지 날짜로 오늘을 포함한 최근 30일 보관. 상세 화면에서 기록 일시정지·재시작·삭제 가능. 사용 기록을 삭제해도 차단 목록과 설정 유지.</dd></div>
+          <div><dt>개인정보</dt><dd>설정과 도메인별 하루 사용 시간은 현재 브라우저에만 저장. 사용 시간 기록에 페이지 경로·제목·전체 방문 내역은 저장하지 않음. 외부 서버·분석 도구 미사용.</dd></div>
+          <div><dt>추가 권한</dt><dd><code>alarms</code>: 약 30초 간격으로 사용 시간 확인. <code>idle</code>: 미사용·화면 잠금 상태 확인.</dd></div>
         </dl>
         <a class="reference" href="https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked" target="_blank" rel="noreferrer">Chrome 공식 설치 안내 ↗</a>
       </div>
