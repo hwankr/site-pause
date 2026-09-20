@@ -19,6 +19,15 @@ function dateLabel(date) {
   return `${Number(month)}월 ${Number(day)}일`;
 }
 
+function renderMetric(id, value) {
+  byId(id).replaceChildren(...value.split(/(\d+)/).filter(Boolean).map(part => {
+    const span = document.createElement('span');
+    span.className = /^\d+$/.test(part) ? 'metric-number' : 'metric-unit';
+    span.textContent = part;
+    return span;
+  }));
+}
+
 function updateControls() {
   periodButtons.forEach(button => {
     button.disabled = busy;
@@ -39,13 +48,10 @@ function renderScope() {
   const scope = blocked ? '차단 목록 사이트' : '전체 사이트';
   byId('usage-scope-label').textContent = `${scope} · 도메인 기준`;
   byId('usage-report').setAttribute('aria-label', `${scope} 사용 시간 통계`);
-  byId('usage-sites-title').textContent = blocked ? '차단 목록 사이트 사용 시간' : '사이트별 사용 시간';
-  byId('daily-title').textContent = blocked ? '차단 목록의 날짜별 사용 시간' : '날짜별 사용 시간';
   byId('daily-chart').setAttribute('aria-label', `${scope} 날짜별 사용 시간`);
-  byId('blocked-filter-help').hidden = !blocked;
 }
 
-function siteRow(site, total, maximum) {
+function siteRow(site, total, maximum, index) {
   const row = document.createElement('li');
   row.className = 'usage-site';
   const details = document.createElement('div');
@@ -56,7 +62,11 @@ function siteRow(site, total, maximum) {
   domain.className = 'usage-domain';
   domain.textContent = siteName(site.host);
   domain.title = site.host;
-  identity.append(createSiteIcon(site.host), domain);
+  const rank = document.createElement('span');
+  rank.className = 'usage-rank';
+  rank.textContent = String(index + 1).padStart(2, '0');
+  rank.setAttribute('aria-hidden', 'true');
+  identity.append(rank, createSiteIcon(site.host), domain);
   const values = document.createElement('span');
   values.className = 'usage-site-values';
   const time = document.createElement('strong');
@@ -78,7 +88,7 @@ function siteRow(site, total, maximum) {
 
 function renderDaily(state) {
   const focusedDate = document.activeElement?.closest('.daily-column')?.dataset.date;
-  byId('daily-section').hidden = state.days === 1 || state.totalMs === 0;
+  byId('daily-section').hidden = state.days === 1;
   const max = Math.max(1, ...state.daily.map(day => day.ms));
   const selected = state.daily.find(day => day.date === selectedDate) || state.daily.at(-1);
   selectedDate = selected?.date || null;
@@ -127,16 +137,17 @@ function render(state) {
   byId('usage-loading').hidden = true;
   byId('usage-error').hidden = true;
   byId('period-label').textContent = days === 1 ? '오늘의 사용 시간' : `최근 ${days}일 사용 시간`;
-  byId('total-time').textContent = formatDuration(state.totalMs);
-  byId('total-sites').textContent = `${state.sites.length}개`;
+  renderMetric('total-time', formatDuration(state.totalMs));
+  renderMetric('total-sites', `${state.sites.length}개`);
   byId('date-range').textContent = days === 1 ? dateLabel(state.endDate) : `${dateLabel(state.startDate)} – ${dateLabel(state.endDate)}`;
   const sites = [...state.sites].sort((a, b) => b.ms - a.ms || a.host.localeCompare(b.host));
-  byId('usage-sites').replaceChildren(...sites.map(site => siteRow(site, state.totalMs, sites[0]?.ms || 0)));
+  byId('usage-sites').replaceChildren(...sites.map((site, index) => siteRow(site, state.totalMs, sites[0]?.ms || 0, index)));
   byId('usage-empty').hidden = state.sites.length > 0;
   byId('usage-empty-title').textContent = filter === 'blocked' ? '차단 목록에 해당하는 사용 기록이 없어요' : '조건에 맞는 사용 기록이 없어요';
   byId('usage-empty-copy').textContent = state.enabled ? '선택한 기간에 하루 누적 5분을 초과한 사이트의 사용 시간이 표시돼요.' : '사용 시간 기록이 꺼져 있어요. 아래에서 기록을 켤 수 있어요.';
   byId('recording-toggle').setAttribute('aria-checked', String(state.enabled));
-  byId('recording-status').textContent = state.enabled ? '기록 켜짐' : '일시 중지 · 기존 기록은 유지돼요';
+  byId('recording-status').textContent = state.enabled ? '기록 중' : '일시 중지';
+  byId('recording-toggle').title = state.enabled ? '기록 일시 중지' : '기록 켜기';
   renderScope();
   renderDaily(state);
   updateControls();
@@ -148,7 +159,12 @@ function renderError(text, code) {
   byId('usage-report').setAttribute('aria-busy', 'false');
   byId('usage-loading').hidden = true;
   byId('usage-error').hidden = false;
-  byId('usage-error-text').textContent = text;
+  const previousResult = currentState && (currentState.days !== days || currentState.filter !== filter);
+  const previousScope = currentState?.filter === 'blocked' ? '차단 목록' : '전체 사이트';
+  const previousPeriod = currentState?.days === 1 ? '오늘' : `최근 ${currentState?.days}일`;
+  byId('usage-error-text').textContent = previousResult
+    ? `${text} 표시된 통계는 ${previousScope} · ${previousPeriod} 기준이에요.`
+    : text;
   byId('reload-extension').hidden = !updateRequired;
   byId('retry-button').hidden = updateRequired;
   if (!currentState) {
@@ -163,14 +179,6 @@ function startLoading() {
   byId('usage-report').setAttribute('aria-busy', 'true');
   byId('usage-loading').hidden = false;
   byId('usage-error').hidden = true;
-  byId('total-time').textContent = '—';
-  byId('total-sites').textContent = '—';
-  byId('period-label').textContent = days === 1 ? '오늘의 사용 시간' : `최근 ${days}일 사용 시간`;
-  byId('date-range').textContent = '불러오는 중';
-  byId('usage-sites').replaceChildren();
-  byId('usage-empty').hidden = true;
-  byId('daily-section').hidden = true;
-  renderScope();
   updateControls();
 }
 

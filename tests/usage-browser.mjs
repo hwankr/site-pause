@@ -147,7 +147,7 @@ try {
     assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
     assert.equal(await usage.locator(`button[data-days="${days}"]`).getAttribute('aria-pressed'), 'true');
     assert.equal(await usage.locator('#total-sites').textContent(), '4개');
-    assert.equal(await usage.locator('#blocked-filter-help').isVisible(), true);
+    assert.match(await usage.locator('#blocked-filter-help').textContent(), /현재 저장된 목록/);
     if (days === 1) assert.equal(await usage.locator('#total-time').textContent(), '1시간 34분');
     for (const day of expectedDaily) {
       const column = usage.locator(`.daily-column[data-date="${day.date}"]`);
@@ -156,6 +156,9 @@ try {
       assert.ok((await column.getAttribute('aria-label')).endsWith(`, ${timeLabel}`));
     }
   }
+  await usage.locator('.usage-method summary').click();
+  assert.equal(await usage.locator('#blocked-filter-help').isVisible(), true);
+  await usage.locator('.usage-method summary').click();
   await screenshot(usage, 'usage-blocked');
   passed('blocked filter includes whole-site subdomains and page host totals; period, ranking and daily metrics agree');
 

@@ -11,38 +11,37 @@
   <div class="settings-shell">
     <header class="settings-header">
       <a class="brand" href="options.html"><span class="brand-mark" aria-hidden="true"><i></i><i></i></span>잠깐, 집중</a>
-      <a class="header-link" href="usage.html">사용 시간</a>
+      <a class="header-link" href="usage.html">사용 시간 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     </header>
     <main>
-      <div class="page-intro">
+      <div class="page-intro options-intro">
         <h1 class="page-title">사이트 관리</h1>
-      </div>
-      <section class="control-card" aria-labelledby="control-title">
-        <div class="section-row">
-          <div class="control-copy"><h2 id="control-title">차단</h2><span id="toggle-label" class="sr-only">불러오는 중</span></div>
+        <section class="control-card" aria-labelledby="control-title">
+          <h2 id="control-title" class="sr-only">전체 차단</h2>
+          <span id="toggle-label" class="options-status">불러오는 중</span>
           <button id="toggle-button" class="switch-button" type="button" role="switch" aria-label="전체 차단" aria-checked="false" disabled>
             <span class="switch-track" aria-hidden="true"><span></span></span>
           </button>
-        </div>
-        <p class="control-hint">쇼츠·릴스를 포함한 모든 차단 규칙에 적용돼요.</p>
-        <p id="toggle-message" class="message" role="status" hidden></p>
-      </section>
-      <section class="settings-card" aria-labelledby="list-title">
-        <section class="short-form-settings" aria-labelledby="short-form-title">
-          <h2 id="short-form-title">쇼츠·릴스 차단</h2>
-          <p id="short-form-hint" class="short-form-hint">전용 화면을 차단하고 메뉴·추천 카드를 숨겨요. 일반 영상·게시물은 이용할 수 있어요.</p>
+        </section>
+      </div>
+      <p id="toggle-message" class="message" role="status" hidden></p>
+      <div class="settings-card">
+        <section class="settings-section short-form-settings" aria-labelledby="short-form-title">
+          <div class="settings-section-heading"><h2 id="short-form-title">쇼츠·릴스 차단</h2></div>
           <div class="short-form-options">
             <div class="short-form-option">
-              <label class="short-form-label" for="youtube-shorts"><span>YouTube 쇼츠 차단</span><input id="youtube-shorts" type="checkbox" data-short-form="youtubeShorts" aria-describedby="short-form-hint short-form-save-hint youtubeShorts-notice" disabled></label>
+              <label class="short-form-label" for="youtube-shorts"><span class="short-form-name"><span data-service-icon="youtube.com"></span>YouTube 쇼츠</span><input id="youtube-shorts" type="checkbox" data-short-form="youtubeShorts" aria-describedby="youtubeShorts-notice" disabled><span class="short-form-switch" aria-hidden="true"></span></label>
               <p id="youtubeShorts-notice" class="short-form-notice" role="status" hidden></p>
             </div>
             <div class="short-form-option">
-              <label class="short-form-label" for="instagram-reels"><span>Instagram 릴스 차단</span><input id="instagram-reels" type="checkbox" data-short-form="instagramReels" aria-describedby="short-form-hint short-form-save-hint instagramReels-notice" disabled></label>
+              <label class="short-form-label" for="instagram-reels"><span class="short-form-name"><span data-service-icon="instagram.com"></span>Instagram 릴스</span><input id="instagram-reels" type="checkbox" data-short-form="instagramReels" aria-describedby="instagramReels-notice" disabled><span class="short-form-switch" aria-hidden="true"></span></label>
               <p id="instagramReels-notice" class="short-form-notice" role="status" hidden></p>
             </div>
           </div>
-          <p id="short-form-save-hint" class="short-form-hint">선택 후 아래에서 저장하세요. 위의 차단 스위치가 켜져 있을 때 적용돼요.</p>
         </section>
+        <section class="settings-section" aria-labelledby="add-title">
+          <div class="settings-section-heading"><h2 id="add-title">사이트 추가</h2></div>
+          <div class="settings-section-content">
         <form id="add-form" class="rule-composer" data-action="block" data-scope="site" aria-label="차단·허용 규칙 추가">
           <div class="composer-controls">
             <fieldset class="action-segment">
@@ -80,18 +79,24 @@
           <button type="button" data-site="x.com" disabled>X 차단</button>
           <button type="button" data-site="music.youtube.com" data-rule-kind="allowedSites" disabled>YouTube Music 허용</button>
         </div>
-        <div class="rules-header section-row">
-          <h2 id="list-title">목록</h2>
-          <span class="count-badge" id="saved-count" aria-label="차단·허용 목록 불러오는 중">—</span>
-        </div>
-        <ul id="site-list" class="settings-list" aria-label="차단·허용 규칙"></ul>
-        <div id="empty-state" class="empty-state" hidden>등록된 규칙 없음</div>
+          </div>
+        </section>
+        <section class="settings-section rules-section" aria-labelledby="list-title">
+          <div class="settings-section-heading">
+            <h2 id="list-title">등록 목록</h2>
+            <span class="count-badge" id="saved-count" aria-label="차단·허용 목록 불러오는 중">—</span>
+          </div>
+          <div class="settings-section-content">
+            <ul id="site-list" class="settings-list" aria-label="차단·허용 규칙"></ul>
+            <div id="empty-state" class="empty-state" hidden>등록된 사이트가 없어요</div>
+          </div>
+        </section>
         <div class="save-row">
-          <span id="draft-status" class="draft-status" role="status" hidden>미저장</span>
+          <span id="draft-status" class="draft-status" role="status" hidden>저장하지 않은 변경 사항</span>
           <button id="save-button" class="primary-button" type="button" disabled>저장</button>
         </div>
         <p id="save-message" class="message" role="status" hidden></p>
-      </section>
+      </div>
     </main>
   </div>
 </body>

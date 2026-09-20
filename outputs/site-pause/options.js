@@ -17,6 +17,9 @@ const save = byId('save-button');
 const toggle = byId('toggle-button');
 const quickButtons = [...document.querySelectorAll('.quick-buttons [data-site]')];
 const shortFormInputs = [...document.querySelectorAll('input[data-short-form]')];
+document.querySelectorAll('[data-service-icon]').forEach(element => {
+  element.replaceWith(createSiteIcon(element.dataset.serviceIcon));
+});
 let currentState = null;
 let initialized = false;
 let saving = false;
@@ -163,7 +166,7 @@ function renderList(newEntries = new Set()) {
     return row;
   }));
   byId('empty-state').hidden = entries.length > 0;
-  byId('saved-count').textContent = `${entries.length} / ${MAX_SITES}`;
+  byId('saved-count').textContent = `${entries.length}개`;
   byId('saved-count').setAttribute('aria-label', `차단·허용 규칙 ${entries.length}개, 최대 ${MAX_SITES}개`);
 }
 
@@ -186,7 +189,8 @@ function render(state) {
   if (listChanged) renderList();
   initialized = true;
   document.body.dataset.enabled = String(state.enabled);
-  byId('toggle-label').textContent = toggling ? '변경 중' : state.enabled ? '켜짐' : '꺼짐';
+  byId('toggle-label').textContent = toggling ? '변경 중' : state.enabled ? '차단 중' : '차단 꺼짐';
+  toggle.title = state.enabled ? '차단 끄기' : '차단 켜기';
   toggle.setAttribute('aria-checked', String(state.enabled));
   updateControls();
 }
