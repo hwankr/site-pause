@@ -1,5 +1,15 @@
 export const MAX_SITES = 200;
 const RULE_KEYS = ['sites', 'blockedPages', 'allowedSites', 'allowedPages'];
+export const SHORT_FORM_FEATURES = Object.freeze([
+  Object.freeze({
+    key: 'youtubeShorts', label: 'YouTube 쇼츠', site: 'youtube.com',
+    pattern: '^https?://(?:www\\.|m\\.)?youtube\\.com\\.?(?::[0-9]+)?/shorts(?:[/?]|$)'
+  }),
+  Object.freeze({
+    key: 'instagramReels', label: 'Instagram 릴스', site: 'instagram.com',
+    pattern: '^https?://(?:www\\.)?instagram\\.com\\.?(?::[0-9]+)?/(?:reels?|[a-zA-Z0-9_.]+/reels)(?:[/?]|$)'
+  })
+]);
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Use the same raw query grammar for normalization and Chrome's RE2 matcher.
 // An earlier bare/encoded v must not let a later v select a different video.
@@ -81,11 +91,22 @@ export function normalizeRuleLists(value) {
   if (RULE_KEYS.reduce((count, key) => count + lists[key].length, 0) > MAX_SITES) {
     throw new Error('규칙은 모두 합해 최대 200개까지 등록할 수 있어요.');
   }
+  for (const feature of SHORT_FORM_FEATURES) {
+    if (Object.hasOwn(value ?? {}, feature.key) && typeof value[feature.key] !== 'boolean') {
+      throw new Error(`${feature.label} 차단 설정을 확인해 주세요.`);
+    }
+    lists[feature.key] = value?.[feature.key] === true;
+  }
   return lists;
 }
 
+export function blockingRuleCount(state) {
+  return (state.sites?.length ?? 0) + (state.blockedPages?.length ?? 0) +
+    SHORT_FORM_FEATURES.filter(feature => state[feature.key] === true).length;
+}
+
 export function hasBlockingRules(state) {
-  return (state.sites?.length ?? 0) + (state.blockedPages?.length ?? 0) > 0;
+  return blockingRuleCount(state) > 0;
 }
 
 function pagePattern(page) {
@@ -111,7 +132,17 @@ export function matchesPage(address, pages = []) {
 
 export function getBlockedRule(address, state) {
   if (!state.enabled || matchesSite(address, state.allowedSites ?? []) || matchesPage(address, state.allowedPages)) return null;
-  return matchesPage(address, state.blockedPages) || matchesSite(address, state.sites ?? []);
+  return matchesPage(address, state.blockedPages) || matchesSite(address, state.sites ?? []) ||
+    matchesShortForm(address, state)?.key || null;
+}
+
+export function matchesShortForm(address, state) {
+  try {
+    const url = new URL(address);
+    url.hash = '';
+    return SHORT_FORM_FEATURES.find(feature => state[feature.key] === true &&
+      new RegExp(feature.pattern).test(url.href)) ?? null;
+  } catch { return null; }
 }
 
 export function matchesSite(address, sites) {
@@ -143,6 +174,20 @@ export function buildRules(state, extensionOrigin) {
         }
       });
     }
+  }
+  for (const feature of SHORT_FORM_FEATURES) {
+    if (state[feature.key] !== true) continue;
+    const target = new URL(`${extensionOrigin.replace(/\/$/, '')}/blocked.html`);
+    target.searchParams.set('site', feature.site);
+    target.searchParams.set('feature', feature.key);
+    // Preserve the complete requested URL so a page-specific allow exception
+    // cannot make the blocked screen report an unrelated fallback as allowed.
+    rules.push({
+      id: rules.length + 1,
+      priority: 2,
+      action: {type: 'redirect', redirect: {regexSubstitution: `${target.href}#source=\\0`}},
+      condition: {regexFilter: `${feature.pattern}[^#]*$`, isUrlFilterCaseSensitive: true, resourceTypes: ['main_frame']}
+    });
   }
   return rules;
 }

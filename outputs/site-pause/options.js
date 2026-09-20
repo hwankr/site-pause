@@ -1,5 +1,7 @@
-import { MAX_SITES, normalizeSites, normalizePages, normalizeRuleLists } from './core.js';
+import { MAX_SITES, SHORT_FORM_FEATURES, normalizeSites, normalizePages, normalizeRuleLists, hasBlockingRules, matchesSite, matchesShortForm } from './core.js';
 import { request, observeState, showMessage } from './shared-ui.js';
+import { siteName } from './site-labels.js';
+import { createSiteIcon } from './site-icons.js';
 
 const byId = (id) => document.getElementById(id);
 const input = byId('site-input');
@@ -14,6 +16,7 @@ const add = byId('add-button');
 const save = byId('save-button');
 const toggle = byId('toggle-button');
 const quickButtons = [...document.querySelectorAll('.quick-buttons [data-site]')];
+const shortFormInputs = [...document.querySelectorAll('input[data-short-form]')];
 let currentState = null;
 let initialized = false;
 let saving = false;
@@ -25,14 +28,18 @@ const ruleKinds = {
   allowedSites: { label: '사이트 허용', page: false, allow: true },
   allowedPages: { label: '페이지 허용', page: true, allow: true }
 };
-const copyRules = (state) => Object.fromEntries(Object.keys(ruleKinds).map((kind) => [kind, [...(state[kind] || [])]]));
+const copyRules = (state) => ({
+  ...Object.fromEntries(Object.keys(ruleKinds).map((kind) => [kind, [...(state[kind] || [])]])),
+  ...Object.fromEntries(SHORT_FORM_FEATURES.map(({ key }) => [key, state[key] === true]))
+});
 const ruleEntries = (rules) => Object.keys(ruleKinds).flatMap((kind) => rules[kind].map((value) => ({ kind, value })));
 let savedRules = copyRules({});
 let draftRules = copyRules({});
 let messageTimer;
 
 const listsMatch = (left, right) => left.length === right.length && left.every((site, index) => site === right[index]);
-const hasDraft = () => input.value.trim() !== '' || Object.keys(ruleKinds).some((kind) => !listsMatch(draftRules[kind], savedRules[kind]));
+const hasDraft = () => input.value.trim() !== '' || Object.keys(ruleKinds).some((kind) => !listsMatch(draftRules[kind], savedRules[kind]))
+  || SHORT_FORM_FEATURES.some(({ key }) => draftRules[key] !== savedRules[key]);
 const selectedAction = () => actionInputs.find((control) => control.checked).value;
 const selectedKind = () => selectedAction() === 'allow'
   ? (selectedScope === 'page' ? 'allowedPages' : 'allowedSites')
@@ -94,7 +101,12 @@ function updateControls() {
   save.textContent = saving ? '저장 중' : '저장';
   byId('draft-status').hidden = !dirty;
   byId('draft-status').classList.toggle('is-dirty', dirty);
-  toggle.disabled = !initialized || busy || (!currentState.enabled && !savedRules.sites.length && !savedRules.blockedPages.length);
+  toggle.disabled = !initialized || busy || (!currentState.enabled && !hasBlockingRules(savedRules));
+  shortFormInputs.forEach((control) => {
+    control.checked = draftRules[control.dataset.shortForm];
+    control.disabled = !initialized || busy;
+  });
+  renderShortFormNotices();
   quickButtons.forEach((button) => {
     const added = draftRules[button.dataset.ruleKind || 'sites'].includes(button.dataset.site);
     button.dataset.added = String(added);
@@ -103,16 +115,33 @@ function updateControls() {
   list.querySelectorAll('button').forEach((button) => { button.disabled = busy; });
 }
 
+function renderShortFormNotices() {
+  for (const feature of SHORT_FORM_FEATURES) {
+    const notice = byId(`${feature.key}-notice`);
+    let text = '';
+    if (draftRules[feature.key]) {
+      const fullSiteAllowed = matchesSite(`https://${feature.site}/`, draftRules.allowedSites);
+      const featurePath = feature.key === 'youtubeShorts' ? 'shorts' : 'reels';
+      const partialSiteAllowed = draftRules.allowedSites.some((site) => site.endsWith(`.${feature.site}`)
+        && matchesShortForm(`https://${site}/${featurePath}/`, draftRules)?.key === feature.key);
+      const fullSiteBlocked = matchesSite(`https://${feature.site}/`, draftRules.sites);
+      if (fullSiteAllowed) text = `사이트 허용 규칙(${fullSiteAllowed})이 우선해 ${feature.label} 차단이 적용되지 않아요.`;
+      else if (partialSiteAllowed) text = '허용한 하위 사이트에서는 쇼츠·릴스 차단이 적용되지 않아요.';
+      else if (fullSiteBlocked) text = `사이트 전체 차단 규칙(${fullSiteBlocked})이 있어 일반 영상·게시물도 차단돼요.`;
+    }
+    notice.textContent = text;
+    notice.hidden = !text;
+  }
+}
+
 function renderList(newEntries = new Set()) {
   const entries = ruleEntries(draftRules);
   list.replaceChildren(...entries.map(({ kind, value }) => {
     const rule = ruleKinds[kind];
     const row = document.createElement('li');
     row.className = `site-row${newEntries.has(entryKey(kind, value)) ? ' is-new' : ''}`;
-    const avatar = document.createElement('span');
-    avatar.className = 'site-avatar';
-    avatar.textContent = (rule.page ? new URL(value).hostname : value).replace(/^www\./, '').charAt(0).toUpperCase();
-    avatar.setAttribute('aria-hidden', 'true');
+    const avatar = createSiteIcon(value);
+    avatar.classList.add('site-avatar');
     const detail = document.createElement('span');
     detail.className = 'rule-detail';
     const badge = document.createElement('span');
@@ -120,7 +149,7 @@ function renderList(newEntries = new Set()) {
     badge.textContent = rule.label;
     const domain = document.createElement('span');
     domain.className = 'site-domain';
-    domain.textContent = value;
+    domain.textContent = rule.page ? value : siteName(value);
     domain.title = value;
     detail.append(badge, domain);
     const remove = document.createElement('button');
@@ -139,13 +168,22 @@ function renderList(newEntries = new Set()) {
 }
 
 function render(state) {
-  const preserveDraft = initialized && hasDraft();
-  currentState = state;
-  savedRules = copyRules(state);
-  if (!preserveDraft) {
-    draftRules = copyRules(savedRules);
-    renderList();
+  const incomingRules = copyRules(state);
+  let listChanged = !initialized;
+  // A different tab can save while this page has a draft. Preserve fields the
+  // user changed, while incorporating incoming edits to untouched fields.
+  for (const kind of Object.keys(ruleKinds)) {
+    if (!initialized || listsMatch(draftRules[kind], savedRules[kind])) {
+      listChanged ||= !listsMatch(draftRules[kind], incomingRules[kind]);
+      draftRules[kind] = [...incomingRules[kind]];
+    }
   }
+  for (const { key } of SHORT_FORM_FEATURES) {
+    if (!initialized || draftRules[key] === savedRules[key]) draftRules[key] = incomingRules[key];
+  }
+  currentState = state;
+  savedRules = incomingRules;
+  if (listChanged) renderList();
   initialized = true;
   document.body.dataset.enabled = String(state.enabled);
   byId('toggle-label').textContent = toggling ? '변경 중' : state.enabled ? '켜짐' : '꺼짐';
@@ -239,6 +277,13 @@ input.addEventListener('input', () => {
   updateControls();
   saveMessage('');
 });
+
+shortFormInputs.forEach((control) => control.addEventListener('change', () => {
+  if (!initialized || saving || toggling) return;
+  draftRules = { ...draftRules, [control.dataset.shortForm]: control.checked };
+  updateControls();
+  saveMessage('');
+}));
 
 input.addEventListener('paste', (event) => {
   const text = event.clipboardData?.getData('text');

@@ -20,13 +20,29 @@
       <section class="control-card" aria-labelledby="control-title">
         <div class="section-row">
           <div class="control-copy"><h2 id="control-title">차단</h2><span id="toggle-label" class="sr-only">불러오는 중</span></div>
-          <button id="toggle-button" class="switch-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
+          <button id="toggle-button" class="switch-button" type="button" role="switch" aria-label="전체 차단" aria-checked="false" disabled>
             <span class="switch-track" aria-hidden="true"><span></span></span>
           </button>
         </div>
+        <p class="control-hint">쇼츠·릴스를 포함한 모든 차단 규칙에 적용돼요.</p>
         <p id="toggle-message" class="message" role="status" hidden></p>
       </section>
       <section class="settings-card" aria-labelledby="list-title">
+        <section class="short-form-settings" aria-labelledby="short-form-title">
+          <h2 id="short-form-title">쇼츠·릴스 차단</h2>
+          <p id="short-form-hint" class="short-form-hint">전용 화면을 차단하고 메뉴·추천 카드를 숨겨요. 일반 영상·게시물은 이용할 수 있어요.</p>
+          <div class="short-form-options">
+            <div class="short-form-option">
+              <label class="short-form-label" for="youtube-shorts"><span>YouTube 쇼츠 차단</span><input id="youtube-shorts" type="checkbox" data-short-form="youtubeShorts" aria-describedby="short-form-hint short-form-save-hint youtubeShorts-notice" disabled></label>
+              <p id="youtubeShorts-notice" class="short-form-notice" role="status" hidden></p>
+            </div>
+            <div class="short-form-option">
+              <label class="short-form-label" for="instagram-reels"><span>Instagram 릴스 차단</span><input id="instagram-reels" type="checkbox" data-short-form="instagramReels" aria-describedby="short-form-hint short-form-save-hint instagramReels-notice" disabled></label>
+              <p id="instagramReels-notice" class="short-form-notice" role="status" hidden></p>
+            </div>
+          </div>
+          <p id="short-form-save-hint" class="short-form-hint">선택 후 아래에서 저장하세요. 위의 차단 스위치가 켜져 있을 때 적용돼요.</p>
+        </section>
         <form id="add-form" class="rule-composer" data-action="block" data-scope="site" aria-label="차단·허용 규칙 추가">
           <div class="composer-controls">
             <fieldset class="action-segment">

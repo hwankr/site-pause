@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>잠깐, 집중 · 디자인 미리보기</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { font: 13px/1.5 system-ui, sans-serif; color: #253047; background: #e9edf4; display: flex; flex-direction: column; }
+    header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; padding: 14px 22px; background: #fff; border-bottom: 1px solid #dce2ec; }
+    strong { font-size: 14px; } .note { color: #718099; font-size: 12px; margin-left: 8px; }
+    nav { display: flex; gap: 4px; } nav a, button, select { color: inherit; font: inherit; border: 1px solid #dce2ec; border-radius: 7px; background: #fff; padding: 7px 11px; text-decoration: none; cursor: pointer; }
+    nav a { border-color: transparent; } nav a[aria-current="page"] { color: #2458da; background: #edf2ff; }
+    .tools { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+    button:hover, nav a:hover { background: #f0f4fa; }
+    :focus-visible { outline: 2px solid #3564eb; outline-offset: 3px; }
+    main { flex: 1; min-height: 0; display: flex; justify-content: center; overflow: auto; padding: 18px; }
+    iframe { display: block; width: 100%; height: 100%; border: 0; background: #f6f7fa; box-shadow: 0 0 0 1px #dce2ec; border-radius: 9px; }
+    @media (max-width: 700px) { header { padding: 10px 12px; gap: 8px; } .note { display: block; margin: 0; } main { padding: 8px; } .tools { margin-left: 0; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div><strong>디자인 미리보기</strong><span class="note">예시 데이터 · 파일 저장 시 자동 새로고침</span></div>
+    <nav aria-label="미리보기 화면">
+      <a href="?screen=options" data-screen="options">사이트 관리</a>
+      <a href="?screen=popup" data-screen="popup">팝업</a>
+      <a href="?screen=usage" data-screen="usage">사용 시간</a>
+      <a href="?screen=blocked" data-screen="blocked">차단 화면</a>
+    </nav>
+    <div class="tools">
+      <select id="width" aria-label="미리보기 너비"><option value="full">전체 너비</option><option value="390">모바일 390px</option><option value="320">모바일 320px</option></select>
+      <button id="reset" type="button">예시 데이터 초기화</button>
+      <a id="standalone" href="/options.html" target="_blank" rel="noopener">새 탭</a>
+    </div>
+  </header>
+  <main><iframe id="preview" title="확장 프로그램 화면 미리보기"></iframe></main>
+  <script>
+    const frame = document.getElementById('preview');
+    const width = document.getElementById('width');
+    const screens = {
+      options: '/options.html', popup: '/popup.html', usage: '/usage.html',
+      blocked: '/blocked.html?site=youtube.com#source=https://www.youtube.com/shorts/preview'
+    };
+    let current = 'options';
+    function size() { frame.style.maxWidth = current === 'popup' ? '380px' : width.value === 'full' ? 'none' : `${width.value}px`; }
+    function reflect(screen, address = screens[screen]) {
+      current = screen;
+      document.querySelectorAll('[data-screen]').forEach(link => {
+        if (link.dataset.screen === screen) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      });
+      document.getElementById('standalone').href = address;
+      history.replaceState({}, '', `?screen=${screen}`);
+      size();
+    }
+    function show(screen) { reflect(screen); frame.src = screens[screen]; }
+    document.querySelectorAll('[data-screen]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); show(link.dataset.screen); }));
+    width.addEventListener('change', size);
+    frame.addEventListener('load', () => {
+      try {
+        const url = new URL(frame.contentWindow.location.href);
+        const screen = Object.keys(screens).find(key => url.pathname === `/${key}.html`);
+        if (screen) reflect(screen, url.pathname + url.search + url.hash);
+      } catch {}
+    });
+    document.getElementById('reset').addEventListener('click', () => { frame.contentWindow.sitePausePreview?.reset(); frame.contentWindow.location.reload(); });
+    const events = new EventSource('/__preview/events');
+    events.onmessage = event => {
+      const {file} = JSON.parse(event.data);
+      if (file === 'preview.html') location.reload();
+      else frame.contentWindow.location.reload();
+    };
+    window.addEventListener('pagehide', () => events.close(), {once: true});
+    const screen = new URLSearchParams(location.search).get('screen');
+    show(Object.hasOwn(screens, screen) ? screen : 'options');
+  </script>
+</body>
+</html>

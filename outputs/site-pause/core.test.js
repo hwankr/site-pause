@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeSites, normalizePages, normalizeRuleLists,
-  matchesSite, matchesPage, getBlockedRule, hasBlockingRules, buildRules
+  matchesSite, matchesPage, matchesShortForm, getBlockedRule, hasBlockingRules,
+  blockingRuleCount, SHORT_FORM_FEATURES, buildRules
 } from './core.js';
 
 const origin = 'chrome-extension://test-extension/';
@@ -40,7 +41,8 @@ test('existing whole-site rules still include subdomains without matching lookal
 
 test('old saved lists receive empty page and exception lists', () => {
   assert.deepEqual(normalizeRuleLists({sites: ['youtube.com']}), {
-    sites: ['youtube.com'], blockedPages: [], allowedSites: [], allowedPages: []
+    sites: ['youtube.com'], blockedPages: [], allowedSites: [], allowedPages: [],
+    youtubeShorts: false, instagramReels: false
   });
 });
 
@@ -198,4 +200,112 @@ test('network rules and tab enforcement agree on blocked and allowed addresses',
   for (const address of addresses) {
     assert.equal(networkAction(address, rules) === 'redirect', Boolean(getBlockedRule(address, configuration)), address);
   }
+});
+
+test('short-form flags default off and only accept booleans', () => {
+  assert.equal(normalizeRuleLists().youtubeShorts, false);
+  assert.equal(normalizeRuleLists().instagramReels, false);
+  for (const feature of SHORT_FORM_FEATURES) {
+    assert.equal(normalizeRuleLists({[feature.key]: true})[feature.key], true);
+    for (const invalid of ['true', 'false', 1, 0, null, undefined, [], {}]) {
+      assert.throws(() => normalizeRuleLists({[feature.key]: invalid}), /차단 설정/);
+    }
+  }
+  assert.equal(blockingRuleCount(state({youtubeShorts: true, instagramReels: true})), 2);
+  assert.equal(blockingRuleCount(state({sites: ['example.com'], youtubeShorts: true,
+    allowedSites: ['youtube.com']})), 2, 'exceptions do not remove saved block rules');
+  assert.equal(hasBlockingRules(state({youtubeShorts: true})), true);
+  assert.equal(hasBlockingRules(state({instagramReels: true})), true);
+});
+
+test('short-form path matching and network rules agree without blocking ordinary pages', () => {
+  const configuration = state({youtubeShorts: true, instagramReels: true});
+  const rules = buildRules(configuration, origin);
+  const cases = [
+    ['https://youtube.com/shorts', 'youtubeShorts'],
+    ['https://www.youtube.com/shorts/', 'youtubeShorts'],
+    ['https://m.youtube.com/shorts/AbC_123?feature=share#details', 'youtubeShorts'],
+    ['http://www.youtube.com/shorts?feature=share', 'youtubeShorts'],
+    ['https://WWW.YOUTUBE.COM:443/shorts/AbC_123', 'youtubeShorts'],
+    ['https://www.youtube.com.:8443/shorts/AbC_123', 'youtubeShorts'],
+    ['https://youtube.com/shorts#details', 'youtubeShorts'],
+    ['https://instagram.com/reel/AbC_123/', 'instagramReels'],
+    ['https://www.instagram.com/reels', 'instagramReels'],
+    ['https://www.instagram.com/reels?next=1', 'instagramReels'],
+    ['https://www.instagram.com/reel#details', 'instagramReels'],
+    ['http://www.instagram.com./reels/AbC_123/', 'instagramReels'],
+    ['https://www.instagram.com:8443/name.123_/reels/', 'instagramReels'],
+    ['https://youtube.com/', null],
+    ['https://www.youtube.com/watch?v=AbC_123', null],
+    ['https://youtu.be/AbC_123', null],
+    ['https://www.youtube.com/results?search_query=shorts', null],
+    ['https://www.youtube.com/shortstory', null],
+    ['https://www.youtube.com/Shorts/AbC_123', null],
+    ['https://music.youtube.com/shorts/AbC_123', null],
+    ['https://www.youtube.com.attacker.test/shorts/AbC_123', null],
+    ['https://notyoutube.com/shorts/AbC_123', null],
+    ['https://youtube.com@attacker.test/shorts/AbC_123', null],
+    ['https://www.instagram.com/', null],
+    ['https://www.instagram.com/p/AbC_123/', null],
+    ['https://www.instagram.com/direct/inbox/', null],
+    ['https://www.instagram.com/name.123_/', null],
+    ['https://www.instagram.com/reelstory/', null],
+    ['https://www.instagram.com/name/reelstory/', null],
+    ['https://www.instagram.com/REELS/', null],
+    ['https://m.instagram.com/reels/', null],
+    ['https://www.instagram.com.attacker.test/reel/AbC_123/', null],
+    ['ftp://www.youtube.com/shorts/AbC_123', null]
+  ];
+  for (const [address, expected] of cases) {
+    assert.equal(matchesShortForm(address, configuration)?.key ?? null, expected, address);
+    assert.equal(getBlockedRule(address, configuration), expected, address);
+    assert.equal(networkAction(address, rules) === 'redirect', expected !== null, address);
+  }
+  assert.equal(matchesShortForm('invalid', configuration), null);
+  assert.equal(matchesShortForm('https://youtube.com/shorts/a', state()), null);
+  assert.equal(matchesShortForm('https://youtube.com/shorts/a', {...configuration, enabled: false}).key,
+    'youtubeShorts', 'the shared matcher classifies the path independently of the global switch');
+  assert.equal(getBlockedRule('https://youtube.com/shorts/a', {...configuration, enabled: false}), null);
+});
+
+test('allow rules continue to override short-form blocking in both enforcement paths', () => {
+  const page = 'https://www.instagram.com/reel/allowed/';
+  const configuration = state({youtubeShorts: true, instagramReels: true,
+    allowedSites: ['youtube.com'], allowedPages: [page]});
+  const rules = buildRules(configuration, origin);
+  for (const address of ['https://m.youtube.com/shorts/any', page, `${page}#details`]) {
+    assert.equal(getBlockedRule(address, configuration), null, address);
+    assert.equal(networkAction(address, rules), 'allow', address);
+  }
+  assert.equal(getBlockedRule('https://www.instagram.com/reel/other/', configuration), 'instagramReels');
+  assert.equal(networkAction('https://www.instagram.com/reel/other/', rules), 'redirect');
+});
+
+test('short-form redirects preserve full source URLs and feature labels', () => {
+  const configuration = state({youtubeShorts: true, instagramReels: true,
+    allowedPages: ['https://www.youtube.com/shorts/', 'https://www.instagram.com/reels/']});
+  const rules = buildRules(configuration, origin);
+  assert.equal(rules.length, 4);
+  assert.equal(new Set(rules.map(rule => rule.id)).size, rules.length);
+  for (const rule of rules.filter(item => item.action.type === 'redirect')) {
+    const source = rule.condition.regexFilter.includes('youtube')
+      ? 'https://www.youtube.com/shorts/AbC_123?feature=share&value=one%26two&from=other'
+      : 'https://www.instagram.com/reel/AbC_123/?igsh=hello%2Bworld&other=two';
+    const pattern = new RegExp(rule.condition.regexFilter);
+    assert.equal(pattern.exec(source)?.[0], source, 'network redirects must capture the complete URL');
+    const target = new URL(source.replace(pattern, match => rule.action.redirect.regexSubstitution.replace('\\0', match)));
+    assert.ok(target.hash.startsWith('#source='));
+    const from = target.hash.slice('#source='.length);
+    const feature = SHORT_FORM_FEATURES.find(item => item.key === target.searchParams.get('feature'));
+    assert.ok(feature);
+    assert.equal(from, source, 'raw fragment source keeps query separators and encoded bytes');
+    assert.equal(target.searchParams.get('site'), feature.site);
+    assert.equal(target.pathname, '/blocked.html');
+    assert.equal(getBlockedRule(from, configuration), feature.key);
+    assert.equal(rule.priority, 2);
+    assert.deepEqual(rule.condition.resourceTypes, ['main_frame']);
+    assert.equal(networkAction(from, rules, 'media'), null);
+    assert.equal(networkAction(from, rules, 'sub_frame'), null);
+  }
+  assert.deepEqual(buildRules({...configuration, enabled: false}, origin), []);
 });

@@ -1,5 +1,7 @@
 import { showMessage } from './shared-ui.js';
 import { observeUsage, formatDuration } from './usage-ui.js';
+import { siteName } from './site-labels.js';
+import { createSiteIcon } from './site-icons.js';
 
 const byId = id => document.getElementById(id);
 const periodButtons = [...document.querySelectorAll('[data-days]')];
@@ -48,9 +50,13 @@ function siteRow(site, total, maximum) {
   row.className = 'usage-site';
   const details = document.createElement('div');
   details.className = 'usage-site-details';
+  const identity = document.createElement('span');
+  identity.className = 'usage-site-name';
   const domain = document.createElement('span');
   domain.className = 'usage-domain';
-  domain.textContent = site.host;
+  domain.textContent = siteName(site.host);
+  domain.title = site.host;
+  identity.append(createSiteIcon(site.host), domain);
   const values = document.createElement('span');
   values.className = 'usage-site-values';
   const time = document.createElement('strong');
@@ -59,7 +65,7 @@ function siteRow(site, total, maximum) {
   const percentage = total ? site.ms / total * 100 : 0;
   share.textContent = percentage > 0 && percentage < 1 ? '1% 미만' : `${Math.round(percentage)}%`;
   values.append(time, share);
-  details.append(domain, values);
+  details.append(identity, values);
   const track = document.createElement('div');
   track.className = 'usage-bar-track';
   track.setAttribute('aria-hidden', 'true');

@@ -13,7 +13,7 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const extensionPath = path.join(root, 'outputs', 'site-pause');
 const profile = await mkdtemp(path.join(tmpdir(), 'site-pause-browser-test-'));
-const emptyRules = {sites: [], blockedPages: [], allowedSites: [], allowedPages: []};
+const emptyRules = {sites: [], blockedPages: [], allowedSites: [], allowedPages: [], youtubeShorts: false, instagramReels: false};
 const song = 'https://www.youtube.com/watch?v=music123abc';
 const privatePage = 'https://example.test/private?item=1';
 const pageErrors = [];
@@ -174,7 +174,10 @@ try {
   await saveFromUi();
   const saved = await message('GET_STATE');
   assert.deepEqual(saved, {enabled: false, sites: ['youtube.com'], blockedPages: [privatePage],
-    allowedSites: ['music.youtube.com'], allowedPages: [song]});
+    allowedSites: ['music.youtube.com'], allowedPages: [song], youtubeShorts: false, instagramReels: false});
+  assert.equal(await options.locator('.site-domain[title="youtube.com"]').textContent(), 'YouTube');
+  assert.equal(await options.locator('.site-domain[title="music.youtube.com"]').textContent(), 'YouTube Music');
+  assert.equal(await options.locator('.site-domain').filter({hasText: song}).textContent(), song);
   await options.locator('#toggle-button').click();
   await options.waitForFunction(() => document.getElementById('toggle-button').getAttribute('aria-checked') === 'true');
   passed('all four rule types persist through the actual options UI and blocking enables');
@@ -240,7 +243,6 @@ try {
   await popup.setViewportSize({width: 380, height: 540});
   await popup.goto(`${extensionOrigin}/popup.html`);
   await popup.waitForFunction(() => document.getElementById('site-count').textContent === '1');
-  assert.equal(await popup.locator('#exception-count').textContent(), '허용 예외 2개');
   await popup.locator('#toggle-button').click();
   await options.waitForFunction(() => document.body.dataset.enabled === 'false');
   await popup.waitForFunction(() => document.getElementById('toggle-button').getAttribute('aria-checked') === 'false' &&

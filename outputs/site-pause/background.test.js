@@ -14,6 +14,7 @@ async function startBackground(saved, initialTabs = [], initialUsage) {
   let stored = structuredClone(saved);
   let storedUsage = structuredClone(initialUsage);
   let rules = [];
+  const regexChecks = [];
   let failNextStorageWrite = false;
   let regexSupported = true;
   globalThis.chrome = {
@@ -30,7 +31,7 @@ async function startBackground(saved, initialTabs = [], initialUsage) {
       }
     }},
     declarativeNetRequest: {
-      async isRegexSupported() { return {isSupported: regexSupported}; },
+      async isRegexSupported(options) { regexChecks.push(options); return {isSupported: regexSupported}; },
       async getDynamicRules() { return structuredClone(rules); },
       async updateDynamicRules({addRules}) { rules = structuredClone(addRules); }
     },
@@ -59,7 +60,7 @@ async function startBackground(saved, initialTabs = [], initialUsage) {
   const initial = await request({type: 'GET_STATE'});
   assert.equal(initial.ok, true);
   return {
-    initial: initial.state, request, updates, tabs, listeners,
+    initial: initial.state, request, updates, tabs, listeners, regexChecks,
     stored: () => structuredClone(stored), rules: () => structuredClone(rules),
     failStorageWrite: () => { failNextStorageWrite = true; },
     rejectRegex: () => { regexSupported = false; }
@@ -72,7 +73,8 @@ test('background migrates old settings and enforces the existing block list', as
     {id: 2, url: 'https://example.com/'}
   ]);
   assert.deepEqual(fixture.initial, {
-    enabled: true, sites: ['youtube.com'], blockedPages: [], allowedSites: [], allowedPages: []
+    enabled: true, sites: ['youtube.com'], blockedPages: [], allowedSites: [], allowedPages: [],
+    youtubeShorts: false, instagramReels: false
   });
   assert.deepEqual(fixture.updates.map(tab => tab.id), [1]);
   assert.equal(fixture.stored().enabled, true);
@@ -178,6 +180,7 @@ test('usage controls are independent of blocking and only available to internal 
     assert.equal(state.ok, true);
     assert.equal(state.capabilities.usage, true);
     assert.equal(state.capabilities.usageFilters, true);
+    assert.equal(state.capabilities.shortForm, true);
     const result = await fixture.request({type: 'GET_USAGE', days: 7}, page);
     assert.equal(result.ok, true);
     assert.equal(result.state.daily.length, 7);
@@ -222,4 +225,100 @@ test('usage filters use the latest saved rules and filter every summary total co
   const cleared = await fixture.request({type: 'CLEAR_USAGE', filter: 'blocked'});
   assert.equal(cleared.state.filter, 'blocked');
   assert.equal((await fixture.request({type: 'GET_USAGE'})).state.totalMs, 0, 'clear deletes all usage, including hidden sites');
+});
+
+test('short-form settings alone can enable blocking and survive legacy or partial saves', async () => {
+  const fixture = await startBackground({enabled: false, sites: []});
+  const saved = await fixture.request({type: 'SAVE_RULES', youtubeShorts: true, instagramReels: true});
+  assert.equal(saved.ok, true);
+  assert.equal(saved.state.enabled, false, 'saving follows the existing global switch');
+  const enabled = await fixture.request({type: 'SET_ENABLED', enabled: true});
+  assert.equal(enabled.ok, true);
+  assert.equal(fixture.rules().length, 2);
+  assert.equal(fixture.regexChecks.length, 2);
+  assert.ok(fixture.regexChecks.every(check => check.requireCapturing === true));
+  const legacy = await fixture.request({type: 'SAVE_SITES', sites: ['example.com']});
+  assert.equal(legacy.state.youtubeShorts, true);
+  assert.equal(legacy.state.instagramReels, true);
+  const partial = await fixture.request({type: 'SAVE_RULES', sites: [], youtubeShorts: false});
+  assert.equal(partial.state.youtubeShorts, false);
+  assert.equal(partial.state.instagramReels, true);
+  assert.equal(partial.state.enabled, true);
+  const cleared = await fixture.request({type: 'SAVE_RULES', instagramReels: false});
+  assert.equal(cleared.state.enabled, false);
+  assert.deepEqual(fixture.rules(), []);
+});
+
+test('short-form-only saved settings restore and enforce relevant open tabs', async () => {
+  const fixture = await startBackground({enabled: true, youtubeShorts: true, instagramReels: true}, [
+    {id: 1, url: 'https://www.youtube.com/shorts/abc'},
+    {id: 2, url: 'https://www.youtube.com/watch?v=abc'},
+    {id: 3, url: 'https://www.instagram.com/reel/abc/'},
+    {id: 4, url: 'https://www.instagram.com/direct/inbox/'}
+  ]);
+  assert.equal(fixture.initial.enabled, true);
+  assert.deepEqual(fixture.updates.map(tab => tab.id), [1, 3]);
+  assert.equal(fixture.rules().length, 2);
+  const shortsTarget = new URL(fixture.tabs.get(1).url);
+  assert.equal(shortsTarget.searchParams.get('feature'), 'youtubeShorts');
+  assert.equal(new URLSearchParams(shortsTarget.hash.slice(1)).get('from'), 'https://www.youtube.com/shorts/abc');
+  assert.equal(new URL(fixture.tabs.get(3).url).searchParams.get('feature'), 'instagramReels');
+});
+
+test('SPA navigation into a short-form route respects exceptions and ignores subframes', async () => {
+  const allowedPage = 'https://www.instagram.com/reel/allowed/';
+  const fixture = await startBackground({enabled: true, youtubeShorts: true, instagramReels: true,
+    allowedSites: ['youtube.com'], allowedPages: [allowedPage]}, [
+    {id: 1, url: 'https://www.youtube.com/watch?v=abc'},
+    {id: 2, url: 'https://www.instagram.com/'}
+  ]);
+  assert.equal(fixture.updates.length, 0);
+  for (const [id, address] of [[1, 'https://www.youtube.com/shorts/abc'], [2, allowedPage]]) {
+    fixture.tabs.set(id, {id, url: address});
+    fixture.listeners.history({tabId: id, frameId: 0, url: address});
+  }
+  await fixture.request({type: 'GET_STATE'});
+  assert.equal(fixture.updates.length, 0);
+  const address = 'https://www.instagram.com/reel/other/';
+  fixture.tabs.set(2, {id: 2, url: address});
+  fixture.listeners.history({tabId: 2, frameId: 3, url: address});
+  await fixture.request({type: 'GET_STATE'});
+  assert.equal(fixture.updates.length, 0);
+  fixture.listeners.history({tabId: 2, frameId: 0, url: address});
+  await fixture.request({type: 'GET_STATE'});
+  assert.deepEqual(fixture.updates.map(tab => tab.id), [2]);
+  assert.equal(new URL(fixture.tabs.get(2).url).searchParams.get('feature'), 'instagramReels');
+});
+
+test('invalid flags cannot overwrite working settings', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const fixture = await startBackground({enabled: true, youtubeShorts: true});
+  const previousRules = fixture.rules();
+  for (const value of ['true', 'false', 1, null]) {
+    assert.equal((await fixture.request({type: 'SAVE_RULES', instagramReels: value})).ok, false);
+    assert.deepEqual(fixture.stored(), fixture.initial);
+    assert.deepEqual(fixture.rules(), previousRules);
+  }
+});
+
+test('failed persistence rolls back short-form rule changes', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const fixture = await startBackground({enabled: true, youtubeShorts: true, instagramReels: false});
+  const previousRules = fixture.rules();
+  fixture.failStorageWrite();
+  const saved = await fixture.request({type: 'SAVE_RULES', youtubeShorts: false, instagramReels: true});
+  assert.equal(saved.ok, false);
+  assert.deepEqual(fixture.rules(), previousRules);
+  assert.deepEqual(fixture.stored(), fixture.initial);
+  assert.deepEqual((await fixture.request({type: 'GET_STATE'})).state, fixture.initial);
+});
+
+test('unsupported short-form regex is rejected before saving', async (t) => {
+  t.mock.method(console, 'error', () => {});
+  const fixture = await startBackground({enabled: false});
+  fixture.rejectRegex();
+  const saved = await fixture.request({type: 'SAVE_RULES', instagramReels: true});
+  assert.equal(saved.ok, false);
+  assert.deepEqual(fixture.stored(), fixture.initial);
+  assert.deepEqual(fixture.rules(), []);
 });

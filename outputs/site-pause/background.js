@@ -1,11 +1,11 @@
-import {normalizeSites, normalizeRuleLists, hasBlockingRules, getBlockedRule, buildRules} from './core.js';
+import {normalizeSites, normalizeRuleLists, hasBlockingRules, blockingRuleCount, matchesShortForm, getBlockedRule, buildRules} from './core.js';
 import {createUsageTracker} from './usage-tracker.js';
 
 const usage = createUsageTracker(chrome);
 usage.start();
 
 const KEY = 'sitePause';
-const CAPABILITIES = {usage: true, usageFilters: true};
+const CAPABILITIES = {usage: true, usageFilters: true, shortForm: true};
 const ORIGIN = chrome.runtime.getURL('');
 let state;
 let queue = Promise.resolve();
@@ -22,10 +22,12 @@ async function syncRules(next) {
   const candidates = buildRules({...next, enabled: true}, ORIGIN);
   for (const rule of candidates) {
     const regex = rule.condition.regexFilter;
-    if (!regex || supportedPatterns.has(regex)) continue;
-    const result = await chrome.declarativeNetRequest.isRegexSupported({regex, isCaseSensitive: true});
+    const requireCapturing = Boolean(rule.action.redirect?.regexSubstitution);
+    const patternKey = `${requireCapturing}:${regex}`;
+    if (!regex || supportedPatterns.has(patternKey)) continue;
+    const result = await chrome.declarativeNetRequest.isRegexSupported({regex, isCaseSensitive: true, requireCapturing});
     if (!result.isSupported) throw new Error('페이지 주소가 너무 복잡해 적용할 수 없어요. 불필요한 주소 매개변수를 지우고 다시 저장해 주세요.');
-    supportedPatterns.add(regex);
+    supportedPatterns.add(patternKey);
   }
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const desired = next.enabled ? candidates : [];
@@ -39,7 +41,7 @@ async function updateBadge() {
   await Promise.all([
     chrome.action.setBadgeText({text: state.enabled ? 'ON' : ''}),
     chrome.action.setBadgeBackgroundColor({color: '#3182f6'}),
-    chrome.action.setTitle({title: state.enabled ? `잠깐, 집중 · ${state.sites.length + state.blockedPages.length}개 차단 규칙 적용 중` : '잠깐, 집중 · 차단 꺼짐'})
+    chrome.action.setTitle({title: state.enabled ? `잠깐, 집중 · ${blockingRuleCount(state)}개 차단 규칙 적용 중` : '잠깐, 집중 · 차단 꺼짐'})
   ]);
 }
 
@@ -63,6 +65,8 @@ async function blockTab(tab) {
   const site = new URL(address).hostname;
   const target = new URL(chrome.runtime.getURL('blocked.html'));
   target.searchParams.set('site', site);
+  const feature = matchesShortForm(address, state);
+  if (feature) target.searchParams.set('feature', feature.key);
   target.hash = new URLSearchParams({from: address}).toString();
   try { await chrome.tabs.update(tab.id, {url: target.href}); }
   catch {}
@@ -113,7 +117,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (!writeAllowed) throw new Error('도구 모음의 확장 프로그램 버튼에서 설정을 바꿔 주세요.');
     if (message?.type === 'SET_ENABLED') {
       if (typeof message.enabled !== 'boolean') throw new Error('차단 상태를 확인해 주세요.');
-      if (message.enabled && !hasBlockingRules(state)) throw new Error('차단할 사이트나 페이지를 먼저 추가해 주세요.');
+      if (message.enabled && !hasBlockingRules(state)) throw new Error('차단할 사이트·페이지를 추가하거나 쇼츠·릴스 차단을 켜 주세요.');
       return commit({...state, enabled: message.enabled});
     }
     if (message?.type === 'SAVE_SITES') {
@@ -122,7 +126,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       return commit({enabled: state.enabled && hasBlockingRules(lists), ...lists});
     }
     if (message?.type === 'SAVE_RULES') {
-      const lists = normalizeRuleLists(message);
+      const lists = normalizeRuleLists({...state, ...message});
       return commit({enabled: state.enabled && hasBlockingRules(lists), ...lists});
     }
     throw new Error('지원하지 않는 요청이에요.');

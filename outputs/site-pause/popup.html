@@ -15,15 +15,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
       </button>
     </header>
-    <section class="blocking-card" aria-labelledby="control-title">
-      <div class="section-row">
-        <h1 id="control-title">사이트 차단</h1>
-        <span class="status-pill" id="status-label">불러오는 중</span>
+    <section class="focus-section" aria-labelledby="control-title">
+      <div class="focus-copy">
+        <h1 id="control-title">집중 모드</h1>
+        <p class="focus-status" id="status-label">불러오는 중</p>
+        <p class="focus-count"><strong id="site-count">0</strong>개 항목</p>
       </div>
-      <div class="blocking-value"><strong id="site-count">0</strong><span>개 차단 규칙</span></div>
-      <p id="exception-count" class="exception-count" hidden></p>
-      <button id="toggle-button" class="primary-button toggle-button" type="button" role="switch" aria-label="사이트 차단" aria-checked="false" disabled>
-        <span id="toggle-label">불러오는 중</span><span class="switch-track" aria-hidden="true"><span></span></span>
+      <button id="toggle-button" class="focus-toggle" type="button" role="switch" aria-label="전체 차단" aria-checked="false" disabled>
+        <span id="toggle-label" class="sr-only">불러오는 중</span>
+        <svg class="focus-pause" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><rect x="8" y="6" width="5" height="20" rx="1.5"/><rect x="19" y="6" width="5" height="20" rx="1.5"/></svg>
+        <svg class="focus-play" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M11 6.6a1.5 1.5 0 0 1 2.3-1.3l13 9.4a1.6 1.6 0 0 1 0 2.6l-13 9.4a1.5 1.5 0 0 1-2.3-1.3Z"/></svg>
       </button>
     </section>
     <p id="message" class="message" role="status" hidden></p>
@@ -32,10 +33,10 @@
         <h2 id="usage-title">오늘 사용 시간</h2>
         <a id="usage-link" class="text-button" href="usage.html" target="_blank" rel="noopener">자세히 보기<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 4 4 4-4 4"/></svg></a>
       </div>
-      <p class="popup-usage-note">사이트별 하루 5분 초과 시 전체 시간 표시</p>
-      <div class="popup-usage-total"><strong id="usage-total">—</strong><span id="usage-status">불러오는 중</span></div>
+      <div class="popup-usage-total"><strong id="usage-total">—</strong></div>
+      <div id="usage-distribution" class="usage-distribution" aria-hidden="true" hidden></div>
       <ol id="usage-list" class="popup-usage-list" aria-label="오늘 가장 많이 사용한 사이트"></ol>
-      <p id="usage-empty" class="usage-hint" hidden>오늘 5분을 초과한 사이트가 아직 없어요.</p>
+      <p id="usage-empty" class="usage-hint" hidden>사용 기록 없음</p>
       <div id="usage-error" class="message" role="status" hidden><span id="usage-error-text"></span><button id="reload-extension" class="text-button" type="button" hidden>확장 프로그램 새로고침</button></div>
     </section>
     <section class="sites-summary" aria-labelledby="sites-title">

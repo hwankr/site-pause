@@ -1,5 +1,5 @@
 import { observeState, showMessage } from './shared-ui.js';
-import { getBlockedRule } from './core.js';
+import { getBlockedRule, matchesShortForm } from './core.js';
 
 const byId = (id) => document.getElementById(id);
 const parameters = new URLSearchParams(location.search);
@@ -13,10 +13,14 @@ try {
     site = parsed.hostname;
     destination = parsed.href;
   }
-  const from = new URLSearchParams(location.hash.slice(1)).get('from');
+  // DNR substitutions preserve the original URL verbatim, including its query.
+  const from = location.hash.startsWith('#source=') ? location.hash.slice(8)
+    : new URLSearchParams(location.hash.slice(1)).get('from');
   if (from && site) {
     const original = new URL(from);
-    if (['http:', 'https:'].includes(original.protocol) && (original.hostname === site || original.hostname.endsWith(`.${site}`))) {
+    const sourceHost = original.hostname.replace(/\.$/, '');
+    const siteHost = site.replace(/\.$/, '');
+    if (['http:', 'https:'].includes(original.protocol) && (sourceHost === siteHost || sourceHost.endsWith(`.${siteHost}`))) {
       original.username = '';
       original.password = '';
       destination = original.href;
@@ -32,7 +36,8 @@ if (site) {
 observeState((state) => {
   const blocked = state.enabled && (!destination || Boolean(getBlockedRule(destination, state)));
   document.body.dataset.enabled = String(blocked);
-  byId('blocked-heading').textContent = blocked ? '사이트 차단 중' : '차단 해제';
+  const feature = destination && matchesShortForm(destination, state);
+  byId('blocked-heading').textContent = blocked ? (feature ? `${feature.label} 차단 중` : '사이트 차단 중') : '차단 해제';
   const link = byId('return-link');
   link.hidden = blocked || !destination;
   if (!blocked && destination) link.href = destination;

@@ -1,12 +1,17 @@
 {
   "manifest_version": 3,
   "name": "잠깐, 집중",
-  "version": "1.5.0",
-  "description": "사이트와 특정 페이지를 차단하고, 사이트별 사용 시간을 확인하세요.",
+  "version": "1.6.0",
+  "description": "사이트·페이지·쇼츠·릴스를 차단하고, 사이트별 사용 시간을 확인하세요.",
   "minimum_chrome_version": "120",
-  "permissions": ["storage", "declarativeNetRequest", "webNavigation", "idle", "alarms"],
+  "permissions": ["storage", "declarativeNetRequest", "webNavigation", "idle", "alarms", "favicon"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {"service_worker": "background.js", "type": "module"},
+  "content_scripts": [{
+    "matches": ["*://*.youtube.com/*", "*://*.youtube.com./*", "*://*.instagram.com/*", "*://*.instagram.com./*"],
+    "js": ["short-form-content.js"],
+    "run_at": "document_start"
+  }],
   "action": {
     "default_title": "잠깐, 집중",
     "default_popup": "popup.html",
@@ -14,6 +19,9 @@
   },
   "icons": {"16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png"},
   "options_ui": {"page": "options.html", "open_in_tab": true},
-  "web_accessible_resources": [{"resources": ["blocked.html"], "matches": ["http://*/*", "https://*/*"]}],
+  "web_accessible_resources": [
+    {"resources": ["blocked.html"], "matches": ["http://*/*", "https://*/*"]},
+    {"resources": ["core.js"], "matches": ["*://*.youtube.com/*", "*://*.youtube.com./*", "*://*.instagram.com/*", "*://*.instagram.com./*"]}
+  ],
   "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'"}
 }

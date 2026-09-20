@@ -1,4 +1,4 @@
-import {normalizeSite} from './core.js';
+import {normalizeSite, SHORT_FORM_FEATURES, matchesShortForm} from './core.js';
 import {normalizeUsage, usageHost} from './usage-core.js';
 
 function canonicalUsageHost(value) {
@@ -23,7 +23,9 @@ function blockedHostMatcher(rules) {
   // an allow exception does not remove a site the user has chosen to block.
   // Usage stores no paths, so page rules include the whole hostname's total;
   // unlike whole-site rules, they do not include other subdomains.
-  return host => pages.has(host) || sites.some(site => host === site || host.endsWith(`.${site}`));
+  return host => pages.has(host) || sites.some(site => host === site || host.endsWith(`.${site}`)) ||
+    SHORT_FORM_FEATURES.some(feature => rules?.[feature.key] === true &&
+      matchesShortForm(`https://${host}/${feature.key === 'youtubeShorts' ? 'shorts' : 'reels'}/`, rules));
 }
 
 export function isBlockedUsageHost(value, rules = {}) {

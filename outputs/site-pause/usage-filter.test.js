@@ -28,6 +28,20 @@ test('page-only blocks include their hostname total without including sibling or
   assert.equal(isBlockedUsageHost('nested.news.example.com', rules), false);
 });
 
+test('short-form choices include supported hosts without claiming to measure short-form viewing', () => {
+  const rules = {youtubeShorts: true, instagramReels: true, enabled: false, allowedSites: ['youtube.com']};
+  for (const host of ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'instagram.com', 'www.instagram.com']) {
+    assert.equal(isBlockedUsageHost(host, rules), true, host);
+  }
+  for (const host of ['music.youtube.com', 'studio.youtube.com', 'other.instagram.com', 'youtube.com.evil.test']) {
+    assert.equal(isBlockedUsageHost(host, rules), false, host);
+  }
+  assert.equal(isBlockedUsageHost('youtube.com', {...rules, youtubeShorts: false}), false);
+  assert.equal(isBlockedUsageHost('instagram.com', {...rules, instagramReels: false}), false);
+  const data = {enabled: true, days: {'2026-09-19': {'youtube.com': 10 * minute, 'instagram.com': 7 * minute, 'music.youtube.com': 9 * minute}}};
+  assert.equal(summarizeUsage(filterUsageData(data, 'blocked', rules, now), 1, now).totalMs, 17 * minute);
+});
+
 test('saved block-list membership survives disabled blocking and allow exceptions', () => {
   const rules = {
     enabled: false, sites: ['example.com'], blockedPages: ['https://other.example/private'],

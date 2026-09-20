@@ -91,7 +91,10 @@ try {
   await ready(usage);
   assert.equal(await usage.locator('#total-time').textContent(), '2시간 23분');
   assert.equal(await usage.locator('#total-sites').textContent(), '7개');
-  assert.equal(await usage.locator('#usage-sites .usage-domain').first().textContent(), 'youtube.com');
+  assert.equal(await usage.locator('#usage-sites .usage-domain').first().textContent(), 'YouTube');
+  assert.equal(await usage.locator('#usage-sites .usage-domain').first().getAttribute('title'), 'youtube.com');
+  assert.equal(await usage.locator('.usage-domain[title="music.youtube.com"]').textContent(), 'YouTube Music');
+  assert.equal(await usage.locator('.usage-domain[title="m.youtube.com"]').textContent(), 'YouTube');
   assert.equal(await usage.locator('#daily-section').isVisible(), false);
   assert.equal(await usage.locator('#recording-toggle').getAttribute('aria-checked'), 'true');
   assert.equal(await usage.locator('button[data-filter="all"]').getAttribute('aria-pressed'), 'true');
@@ -139,7 +142,8 @@ try {
     assert.deepEqual(response.state.daily, expectedDaily);
     assert.equal(response.state.totalMs, expectedDaily.reduce((sum, day) => sum + day.ms, 0));
     assert.equal(response.state.sites.reduce((sum, site) => sum + site.ms, 0), response.state.totalMs);
-    assert.deepEqual(await usage.locator('#usage-sites .usage-domain').allTextContents(), response.state.sites.map(site => site.host));
+    assert.deepEqual(await usage.locator('#usage-sites .usage-domain').evaluateAll(labels => labels.map(label => label.title)),
+      response.state.sites.map(site => site.host));
     assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
     assert.equal(await usage.locator(`button[data-days="${days}"]`).getAttribute('aria-pressed'), 'true');
     assert.equal(await usage.locator('#total-sites').textContent(), '4개');
@@ -182,7 +186,7 @@ try {
   await usage.bringToFront();
   await usage.locator('button[data-days="1"]').click();
   await ready(usage);
-  assert.deepEqual(await usage.locator('#usage-sites .usage-domain').allTextContents(), ['github.com', 'sub.news.example.test']);
+  assert.deepEqual(await usage.locator('#usage-sites .usage-domain').allTextContents(), ['GitHub', 'sub.news.example.test']);
   assert.equal(await usage.locator('#total-time').textContent(), '43분');
   assert.equal(await usage.locator('#total-sites').textContent(), '2개');
   assert.equal(await usage.locator('button[data-filter="blocked"]').getAttribute('aria-pressed'), 'true');
@@ -227,7 +231,10 @@ try {
     document.getElementById('site-count').textContent === '4');
   assert.equal(await popup.locator('#usage-total').textContent(), '2시간 23분');
   assert.equal(await popup.locator('#usage-list li').count(), 3);
-  assert.deepEqual(await popup.locator('#usage-list li span:first-child').allTextContents(), ['youtube.com', 'github.com', 'news.example.test']);
+  assert.deepEqual(await popup.locator('#usage-list li > span:first-child').allTextContents(), ['YouTube', 'GitHub', 'news.example.test']);
+  assert.deepEqual(await popup.locator('#usage-list li > span:first-child').evaluateAll(labels => labels.map(label => label.title)),
+    ['youtube.com', 'github.com', 'news.example.test']);
+  assert.deepEqual(await popup.locator('#site-list .site-domain').allTextContents(), ['YouTube', 'Instagram']);
   assert.equal(await popup.locator('#site-list .site-row').count(), 2);
   assert.equal(await popup.locator('#more-button').isVisible(), true);
   const popupSize = await popup.evaluate(() => ({height: document.querySelector('.popup-shell').getBoundingClientRect().height,
