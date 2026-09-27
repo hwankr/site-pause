@@ -5,7 +5,7 @@ import {createUsageTracker, MAX_GAP_MS, USAGE_ALARM, USAGE_KEY} from './usage-tr
 const SESSION_KEY = 'sitePauseUsageSession';
 const START = new Date(2026, 8, 19, 12).getTime();
 
-function fixture({at = START, backing = {local: {}, session: {}}, environment} = {}) {
+function fixture({at = START, backing = {local: {}, session: {}}, environment, simulateIdle = false} = {}) {
   const listeners = {};
   const event = name => ({addListener(fn) { (listeners[name] ??= []).push(fn); }});
   const state = environment ?? {
@@ -15,6 +15,10 @@ function fixture({at = START, backing = {local: {}, session: {}}, environment} =
     tabs: new Map([[1, {id: 1, windowId: 1, active: true, incognito: false, url: 'https://example.com/page'}]])
   };
   let timestamp = at;
+  let lastInputAt = at;
+  const idleState = seconds => state.idle !== 'active' || !simulateIdle
+    ? state.idle
+    : timestamp - lastInputAt >= seconds * 1000 ? 'idle' : 'active';
   let failWriteIn = 0;
   let writes = 0;
   let idleSeconds;
@@ -49,7 +53,7 @@ function fixture({at = START, backing = {local: {}, session: {}}, environment} =
     },
     idle: {
       setDetectionInterval(value) { idleSeconds = value; },
-      async queryState() { return state.idle; },
+      async queryState(seconds) { return idleState(seconds); },
       onStateChanged: event('idle')
     },
     alarms: {
@@ -63,6 +67,8 @@ function fixture({at = START, backing = {local: {}, session: {}}, environment} =
   return {
     tracker, state, backing,
     advance(ms) { timestamp += ms; },
+    input() { lastInputAt = timestamp; },
+    detectedIdle: () => idleState(idleSeconds),
     now: () => timestamp,
     saved: () => structuredClone(backing.local[USAGE_KEY]),
     setup: () => ({idleSeconds, alarm, writes}),
@@ -97,7 +103,7 @@ test('starts a new local session and samples only the focused active tab', async
   f.state.tabs.set(2, {id: 2, windowId: 1, active: false, url: 'https://background.example/'});
   await f.tracker.start();
   assert.equal(f.saved().enabled, true);
-  assert.equal(f.setup().idleSeconds, 60);
+  assert.equal(f.setup().idleSeconds, 60 * 60);
   assert.deepEqual(f.setup().alarm, {name: USAGE_ALARM, periodInMinutes: 0.5});
   assert.equal(f.saved().checkpoint.sessionId, f.backing.session[SESSION_KEY]);
   f.advance(30_000);
@@ -166,6 +172,46 @@ test('idle and locked events pause recording until activity resumes', async () =
   f.advance(10_000);
   await f.summary();
   assert.equal(total(f.saved()), 30_000);
+});
+
+test('passive focused viewing counts for one hour and input starts a fresh idle interval', async () => {
+  const f = fixture({simulateIdle: true});
+  await f.tracker.start();
+  await f.record(59.5 * 60_000);
+  assert.equal((await f.summary()).totalMs, 59.5 * 60_000);
+  assert.equal(f.detectedIdle(), 'active');
+  assert.equal(f.saved().checkpoint.host, 'example.com');
+
+  f.advance(30_000);
+  assert.equal(f.detectedIdle(), 'idle');
+  await f.emit('idle', f.detectedIdle());
+  assert.equal(total(f.saved()), 60 * 60_000);
+  assert.equal(f.saved().checkpoint, null);
+  await f.record(10 * 60_000);
+  assert.equal(total(f.saved()), 60 * 60_000);
+
+  f.input();
+  await f.emit('idle', f.detectedIdle());
+  assert.equal(f.saved().checkpoint.at, f.now());
+  await f.record(59.5 * 60_000);
+  assert.equal((await f.summary()).totalMs, 119.5 * 60_000);
+  assert.equal(f.detectedIdle(), 'active');
+  await f.record(30_000);
+  assert.equal(total(f.saved()), 120 * 60_000);
+  assert.equal(f.saved().checkpoint, null);
+});
+
+test('sampling detects the one-hour idle cutoff even without an idle event', async () => {
+  const f = fixture({simulateIdle: true});
+  await f.tracker.start();
+  await f.record(59.5 * 60_000);
+  assert.equal(total(f.saved()), 59.5 * 60_000);
+  assert.equal(f.saved().checkpoint.host, 'example.com');
+  await f.record(30_000);
+  assert.equal(total(f.saved()), 60 * 60_000);
+  assert.equal(f.saved().checkpoint, null);
+  await f.record(10 * 60_000);
+  assert.equal((await f.summary()).totalMs, 60 * 60_000);
 });
 
 test('incognito windows, incognito tabs, internal pages and minimized windows are excluded', async () => {

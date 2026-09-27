@@ -4,7 +4,8 @@ import {filterUsageData} from './usage-filter.js';
 export const USAGE_KEY = 'sitePauseUsage';
 const SESSION_KEY = 'sitePauseUsageSession';
 export const USAGE_ALARM = 'site-pause-usage';
-const IDLE_SECONDS = 60;
+// Passive viewing (for example, a movie) still counts for up to an hour without input.
+const IDLE_SECONDS = 60 * 60;
 // A delayed alarm must not turn sleep or a stopped browser into hours of usage.
 export const MAX_GAP_MS = 60_000;
 
